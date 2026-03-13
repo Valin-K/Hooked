@@ -47,7 +47,8 @@
     <section class="quick-actions">
         <button class="action" @onclick="GoToMap">Explore Map</button>
         <button class="action" @onclick="GoToCounter">View Insights</button>
-        <button class="action" @onclick="GoToFishDex">Species Library</button>
+        <button class="action" @onclick="GoToFishDex">FishDex</button>
+        <button class="action" @onclick="GoToLeaderboard">Leaderboard</button>
     </section>
 
     <section class="ai-highlight ocean-glass">
@@ -139,5 +140,6 @@
     private void GoToMap() => NavigationManager.NavigateTo("/map");
     private void GoToCounter() => NavigationManager.NavigateTo("/counter");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
+    private void GoToLeaderboard() => NavigationManager.NavigateTo("/leaderboard");
     private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 }

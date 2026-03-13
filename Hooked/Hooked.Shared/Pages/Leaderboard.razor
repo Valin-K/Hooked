@@ -1,0 +1,180 @@
+@page "/leaderboard"
+@using Hooked.Shared.Services
+@inject ILeaderboardService LeaderboardService
+@inject ISocialService SocialService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Leaderboard · Hooked</PageTitle>
+
+<div class="mobile-shell leaderboard-shell">
+    <header class="app-header ocean-glass">
+        <div class="brand-lockup">
+            <span class="brand-mark">?</span>
+            <div>
+                <div class="title">Leaderboard</div>
+                <div class="brand-subtitle">Top Anglers</div>
+            </div>
+        </div>
+        <button class="ghost-icon" type="button" title="Back to home" @onclick="@(() => NavigationManager.NavigateTo("/"))">?</button>
+    </header>
+
+    <div class="lb-filters ocean-glass">
+        <div class="filter-group">
+            <button class="filter-pill @(metric == LeaderboardMetric.MostCaught ? "active" : "")"
+                    type="button"
+                    @onclick="@(() => SetMetric(LeaderboardMetric.MostCaught))">
+                Most Caught
+            </button>
+            <button class="filter-pill @(metric == LeaderboardMetric.LargestFish ? "active" : "")"
+                    type="button"
+                    @onclick="@(() => SetMetric(LeaderboardMetric.LargestFish))">
+                Largest Fish
+            </button>
+        </div>
+        <div class="filter-group">
+            <button class="filter-pill @(scope == LeaderboardScope.AllUsers ? "active" : "")"
+                    type="button"
+                    @onclick="@(() => SetScope(LeaderboardScope.AllUsers))">
+                All Anglers
+            </button>
+            <button class="filter-pill @(scope == LeaderboardScope.Friends ? "active" : "")"
+                    type="button"
+                    @onclick="@(() => SetScope(LeaderboardScope.Friends))">
+                Friends
+            </button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <section class="lb-state ocean-glass">Loading leaderboard…</section>
+    }
+    else if (_loadError is not null)
+    {
+        <section class="lb-state ocean-glass">@_loadError</section>
+    }
+    else if (_rows.Count == 0)
+    {
+        <section class="lb-state ocean-glass">
+            @if (scope == LeaderboardScope.Friends)
+            {
+                <span>No friends data yet — follow some anglers to see them here.</span>
+            }
+            else
+            {
+                <span>No catches recorded yet. Be the first on the board!</span>
+            }
+        </section>
+    }
+    else
+    {
+        <ol class="lb-list">
+            @foreach (var row in _rows)
+            {
+                <li class="lb-row ocean-glass @(row.IsCurrentUser ? "lb-row--me" : "")">
+                    <div class="lb-rank @GetRankClass(row.Rank)">@row.Rank</div>
+                    <a class="lb-identity" href="@GetProfileLink(row.Username)">
+                        <div class="lb-avatar">@GetInitial(row.DisplayName, row.Username)</div>
+                        <div>
+                            <div class="lb-name">@GetDisplayName(row.DisplayName, row.Username)</div>
+                            <div class="lb-handle">@("@" + row.Username)</div>
+                        </div>
+                    </a>
+                    <div class="lb-score">
+                        <div class="lb-score-value">@FormatScore(row.Score)</div>
+                        <div class="lb-score-label">@ScoreLabel</div>
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+
+    <bottom-nav />
+</div>
+
+@code {
+    private LeaderboardMetric metric = LeaderboardMetric.MostCaught;
+    private LeaderboardScope scope = LeaderboardScope.AllUsers;
+    private List<LeaderboardRowDto> _rows = [];
+    private Guid _currentUserId = Guid.Empty;
+    private bool _isLoading = true;
+    private string? _loadError;
+
+    private string ScoreLabel => metric == LeaderboardMetric.MostCaught ? "catches" : "metres";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = await SocialService.ResolveCurrentUserAsync();
+            _currentUserId = user.Id;
+        }
+        catch
+        {
+            // non-fatal — leaderboard still works without a current user
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task SetMetric(LeaderboardMetric newMetric)
+    {
+        if (newMetric == metric) return;
+        metric = newMetric;
+        await LoadAsync();
+    }
+
+    private async Task SetScope(LeaderboardScope newScope)
+    {
+        if (newScope == scope) return;
+        scope = newScope;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _loadError = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await LeaderboardService.GetLeaderboardAsync(metric, scope, _currentUserId);
+            _rows = result.ToList();
+        }
+        catch (Exception ex)
+        {
+            _loadError = $"Could not load leaderboard: {ex.Message}";
+            _rows = [];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetRankClass(int rank) => rank switch
+    {
+        1 => "rank-gold",
+        2 => "rank-silver",
+        3 => "rank-bronze",
+        _ => ""
+    };
+
+    private static string GetDisplayName(string? displayName, string username)
+        => string.IsNullOrWhiteSpace(displayName) ? username : displayName;
+
+    private static string GetInitial(string? displayName, string username)
+    {
+        var source = string.IsNullOrWhiteSpace(displayName) ? username : displayName;
+        return string.IsNullOrWhiteSpace(source) ? "?" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
+
+    private string FormatScore(double score) =>
+        metric == LeaderboardMetric.MostCaught
+            ? ((int)score).ToString("N0")
+            : $"{score:F2} m";
+
+    private static string GetProfileLink(string username)
+        => $"/profile/{Uri.EscapeDataString(username)}";
+}
