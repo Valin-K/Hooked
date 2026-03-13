@@ -13,7 +13,11 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "hooked.db");
+Directory.CreateDirectory(Path.GetDirectoryName(databasePath) ?? builder.Environment.ContentRootPath);
 builder.Services.AddHookedDatabase(databasePath);
+
+// Register domain services
+builder.Services.AddHookedServices();
 
 var app = builder.Build();
 
