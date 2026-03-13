@@ -1,4 +1,5 @@
 ﻿using Hooked.Services;
+using Hooked.Shared.Data;
 using Hooked.Shared.Services;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +20,9 @@ namespace Hooked
             // Add device-specific services used by the Hooked.Shared project
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
+            var databasePath = Path.Combine(FileSystem.AppDataDirectory, "hooked.db");
+            builder.Services.AddHookedDatabase(databasePath);
+
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG
@@ -26,7 +30,10 @@ namespace Hooked
             builder.Logging.AddDebug();
 #endif
 
-            return builder.Build();
+            var app = builder.Build();
+            app.Services.InitializeHookedDatabaseAsync().GetAwaiter().GetResult();
+
+            return app;
         }
     }
 }

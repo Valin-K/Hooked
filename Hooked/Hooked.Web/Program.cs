@@ -1,3 +1,4 @@
+using Hooked.Shared.Data;
 using Hooked.Shared.Services;
 using Hooked.Web.Components;
 using Hooked.Web.Services;
@@ -11,7 +12,12 @@ builder.Services.AddRazorComponents()
 // Add device-specific services used by the Hooked.Shared project
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
+var databasePath = Path.Combine(builder.Environment.ContentRootPath, "hooked.db");
+builder.Services.AddHookedDatabase(databasePath);
+
 var app = builder.Build();
+
+await app.Services.InitializeHookedDatabaseAsync();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
