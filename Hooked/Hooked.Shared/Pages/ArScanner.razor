@@ -1,18 +1,22 @@
 @page "/arscanner"
 @using Hooked.Shared.Services.AI
-@using Hooked.Shared.Services.Camera
-@inject IPhotoCaptureService PhotoCaptureService
+@using Microsoft.AspNetCore.Components.Forms
 @inject IGeminiFishSpeciesService GeminiFishSpeciesService
 
 <PageTitle>AI Scanner</PageTitle>
 
 <div class="card">
     <div class="title">Open AI Scanner</div>
-    <div class="muted">Take a fish photo and identify the species.</div>
+    <div class="muted">Take or choose a fish photo to identify the species.</div>
 
-    <button class="action primary" style="margin-top:12px" type="button" disabled="@isScanning" @onclick="ScanAsync">
-        @(isScanning ? "Scanning..." : "Take Photo")
-    </button>
+    <div style="margin-top:12px">
+        <InputFile OnChange="ScanFromPhotoAsync" accept="image/*" capture="environment" disabled="@isScanning" />
+    </div>
+
+    @if (isScanning)
+    {
+        <div style="margin-top:12px">Scanning...</div>
+    }
 
     @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
@@ -28,39 +32,66 @@
 <bottom-nav />
 
 @code {
+    private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
+
     private bool isScanning;
     private string? speciesName;
     private string? errorMessage;
 
-    private async Task ScanAsync()
+    private async Task ScanFromPhotoAsync(InputFileChangeEventArgs eventArgs)
     {
+        if (isScanning)
+        {
+            return;
+        }
+
+        var photo = eventArgs.File;
+        if (photo is null)
+        {
+            errorMessage = "No photo was selected.";
+            return;
+        }
+
         isScanning = true;
         speciesName = null;
         errorMessage = null;
 
         try
         {
-            var capturedPhoto = await PhotoCaptureService.CapturePhotoAsync();
-            if (capturedPhoto is null)
+            var mimeType = string.IsNullOrWhiteSpace(photo.ContentType)
+                ? "image/jpeg"
+                : photo.ContentType;
+
+            await using var stream = photo.OpenReadStream(MaxPhotoSizeBytes);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            if (memoryStream.Length == 0)
             {
-                errorMessage = "No photo was captured.";
+                errorMessage = "No photo data was found.";
                 return;
             }
 
             speciesName = await GeminiFishSpeciesService
-                .IdentifyFishSpeciesAsync(capturedPhoto.Bytes, capturedPhoto.MimeType);
+                .IdentifyFishSpeciesAsync(memoryStream.ToArray(), mimeType);
         }
         catch (OperationCanceledException)
         {
-            errorMessage = "Photo capture was canceled.";
+            errorMessage = "Photo processing was canceled.";
+        }
+        catch (IOException)
+        {
+            errorMessage = "Photo must be smaller than 10 MB.";
         }
         catch (InvalidOperationException ex)
         {
             errorMessage = ex.Message;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            errorMessage = "Scanner is temporarily unavailable.";
+            errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Scanner is temporarily unavailable."
+                : ex.Message;
         }
         finally
         {

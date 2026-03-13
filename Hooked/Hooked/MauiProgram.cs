@@ -2,6 +2,7 @@
 using Hooked.Shared.Data;
 using Hooked.Shared.Services;
 using Hooked.Shared.Services.Camera;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Hooked
@@ -17,6 +18,8 @@ namespace Hooked
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
+
+            AddBundledConfiguration(builder);
 
             // Add device-specific services used by the Hooked.Shared project
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
@@ -37,6 +40,18 @@ namespace Hooked
             app.Services.InitializeHookedDatabaseAsync().GetAwaiter().GetResult();
 
             return app;
+        }
+
+        private static void AddBundledConfiguration(MauiAppBuilder builder)
+        {
+            try
+            {
+                using var stream = FileSystem.OpenAppPackageFileAsync("appsettings.json").GetAwaiter().GetResult();
+                builder.Configuration.AddJsonStream(stream);
+            }
+            catch (FileNotFoundException)
+            {
+            }
         }
     }
 }

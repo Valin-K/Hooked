@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.GenAI;
@@ -9,7 +11,9 @@ namespace Hooked.Shared.Services.AI
 {
     public sealed class GeminiFishSpeciesService : IGeminiFishSpeciesService
     {
-        private const string ModelName = "gemini-2.0-flash";
+        private const string ModelName = "gemini-2.5-flash";
+        private const string RateLimitMessage = "Gemini rate limit reached. Please wait a moment and try again.";
+        private const string ModelNotFoundMessage = "Configured Gemini model is unavailable for this API key.";
         private readonly Client? _client;
 
         public GeminiFishSpeciesService(string? apiKey)
@@ -41,33 +45,58 @@ namespace Hooked.Shared.Services.AI
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var dataUri = $"data:{mimeType};base64,{Convert.ToBase64String(imageBytes)}";
-            var response = await _client.Models.GenerateContentAsync(
-                model: ModelName,
-                contents: new List<Content>
-                {
-                    new()
+            GenerateContentResponse response;
+
+            try
+            {
+                response = await _client.Models.GenerateContentAsync(
+                    model: ModelName,
+                    contents: new List<Content>
                     {
-                        Parts = new List<Part>
+                        new()
                         {
-                            new()
+                            Parts = new List<Part>
                             {
-                                Text = "Return only the common fish species name shown in this image. Example: Rainbow trout. If unknown, return Unknown."
-                            },
-                            new()
-                            {
-                                FileData = new FileData
+                                new()
                                 {
-                                    FileUri = dataUri,
-                                    MimeType = mimeType
+                                    Text = "Return only the common fish species name shown in this image. Example: Rainbow trout. If unknown, return Unknown."
+                                },
+                                new()
+                                {
+                                    InlineData = new Blob
+                                    {
+                                        Data = imageBytes,
+                                        MimeType = mimeType
+                                    }
                                 }
                             }
                         }
-                    }
-                }).ConfigureAwait(false);
+                    }).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests || ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("too many requests", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
 
             var species = response?.Candidates?[0]?.Content?.Parts?[0]?.Text?.Trim();
-            return string.IsNullOrWhiteSpace(species) ? "Unknown" : species;
+            if (string.IsNullOrWhiteSpace(species))
+            {
+                throw new InvalidOperationException("Scanner could not identify a species from this photo.");
+            }
+
+            return species;
         }
     }
 }
