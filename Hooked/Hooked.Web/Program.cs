@@ -1,5 +1,6 @@
 using Hooked.Shared.Data;
 using Hooked.Shared.Services;
+using Hooked.Shared.Services.Camera;
 using Hooked.Web.Components;
 using Hooked.Web.Services;
 
@@ -11,6 +12,7 @@ builder.Services.AddRazorComponents()
 
 // Add device-specific services used by the Hooked.Shared project
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
+builder.Services.AddSingleton<IPhotoCaptureService, PhotoCaptureService>();
 
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "hooked.db");
 Directory.CreateDirectory(Path.GetDirectoryName(databasePath) ?? builder.Environment.ContentRootPath);
