@@ -1,141 +1,91 @@
-/* Modern Oceanic Theme - Inspired by Strava & Waze */
 :root {
-    --bg-primary: #0a0e27;
-    --bg-secondary: #0f1429;
-    --bg-tertiary: #121929;
-    --text-primary: #e8eef6;
-    --text-secondary: #a0aac0;
-    --accent-primary: #06b6d4;
-    --accent-secondary: #0891b2;
-    --accent-tertiary: #22c55e;
-    --glass-light: rgba(255, 255, 255, 0.05);
-    --glass-medium: rgba(255, 255, 255, 0.08);
-    --border-color: rgba(255, 255, 255, 0.08);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --ocean-0: #030712;
+    --ocean-1: #071225;
+    --ocean-2: #0a1d36;
+    --ocean-3: #0f2a46;
+    --text-strong: #f7fbff;
+    --text-soft: #9eb3ca;
+    --accent: #69d8ff;
+    --accent-strong: #1ec8ff;
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --glass-bg-strong: rgba(255, 255, 255, 0.12);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --glass-shadow: 0 24px 60px rgba(1, 7, 18, 0.55);
 }
 
-html, body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1120 50%, #0a0e27 100%);
-    color: var(--text-primary);
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
     margin: 0;
-    padding: 0;
-    min-height: 100vh;
+    min-height: 100%;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text-strong);
+    background:
+        radial-gradient(1200px 700px at 15% -10%, rgba(59, 130, 246, 0.22), transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, rgba(34, 211, 238, 0.2), transparent 65%),
+        linear-gradient(145deg, var(--ocean-0) 0%, var(--ocean-1) 38%, var(--ocean-2) 72%, var(--ocean-3) 100%);
+    background-attachment: fixed;
 }
 
-a, .btn-link {
-    color: var(--accent-primary);
+a,
+.btn-link {
+    color: var(--accent);
     text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-a:hover, .btn-link:hover {
-    color: var(--accent-secondary);
-}
-
-.btn-primary {
-    color: white;
-    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-    border: none;
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(6, 182, 212, 0.35);
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
-}
-
-.content {
-    padding-top: 1.1rem;
 }
 
 h1:focus {
     outline: none;
 }
 
+.content {
+    width: 100%;
+}
+
+.ocean-glass {
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(155deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow: var(--glass-shadow);
+}
+
+.muted,
+.text-muted {
+    color: var(--text-soft) !important;
+}
+
 .valid.modified:not([type=checkbox]) {
-    outline: 1px solid var(--accent-tertiary);
+    outline: 1px solid #38bdf8;
 }
 
 .invalid {
-    outline: 1px solid #ef4444;
+    outline: 1px solid #fb7185;
 }
 
 .validation-message {
-    color: #ef4444;
+    color: #fb7185;
 }
 
 .blazor-error-boundary {
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-    padding: 1rem 1rem 1rem 3.7rem;
-    color: white;
-    border-radius: 8px;
     margin: 1rem;
-    box-shadow: var(--shadow-md);
+    border-radius: 16px;
+    color: #fff;
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    background: linear-gradient(160deg, rgba(159, 18, 57, 0.76), rgba(127, 29, 29, 0.72));
 }
 
 .blazor-error-boundary::after {
     content: "An error has occurred.";
 }
 
-.darker-border-checkbox.form-check-input {
-    border-color: var(--text-secondary);
-}
-
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--text-secondary);
-    text-align: end;
-}
-
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-    text-align: start;
-}
-
-/* Utility Classes */
-.text-muted {
-    color: var(--text-secondary);
-}
-
-.card-modern {
-    background: var(--glass-light);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1rem;
-    transition: all 0.3s ease;
-}
-
-.card-modern:hover {
-    background: var(--glass-medium);
-    border-color: var(--accent-primary);
-    box-shadow: var(--shadow-md);
-}
-
-/* Scrollbar Styling */
 ::-webkit-scrollbar {
     width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--glass-medium);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-primary);
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.45);
 }
