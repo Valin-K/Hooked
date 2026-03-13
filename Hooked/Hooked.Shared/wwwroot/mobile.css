@@ -28,8 +28,8 @@
     border-radius: 50%;
     display: grid;
     place-items: center;
-    color: #9ceaff;
-    background: radial-gradient(circle at 35% 30%, rgba(186, 239, 255, 0.9), rgba(18, 143, 189, 0.32));
+    color: var(--brand-mark-color);
+    background: radial-gradient(circle at 35% 30%, var(--brand-mark-start), var(--brand-mark-end));
 }
 
 .title {
@@ -46,9 +46,9 @@
 }
 
 .ghost-icon {
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.08);
-    color: #ebf8ff;
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(155deg, var(--glass-bg-strong), var(--glass-bg));
+    color: var(--text-strong);
     width: 2.25rem;
     height: 2.25rem;
     border-radius: 999px;
@@ -61,13 +61,13 @@
 
 .badge-pill {
     display: inline-flex;
-    border: 1px solid rgba(255, 255, 255, 0.24);
+    border: 1px solid var(--badge-border);
     border-radius: 999px;
     padding: 0.32rem 0.72rem;
     font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #bae6fd;
+    color: var(--badge-text);
 }
 
 .welcome {
@@ -107,7 +107,7 @@
 }
 
 .action.secondary {
-    border-color: rgba(147, 197, 253, 0.55);
+    border-color: var(--glass-border);
 }
 
 .action.compact {

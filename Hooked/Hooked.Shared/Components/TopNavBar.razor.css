@@ -5,6 +5,13 @@
     gap: 0.75rem;
 }
 
+::deep .top-nav-right {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 ::deep .top-nav-tabs {
     display: flex;
     flex: 1 1 auto;
@@ -12,6 +19,11 @@
     justify-content: flex-end;
     gap: 0.5rem;
     margin-left: 0.9rem;
+}
+
+::deep .top-theme-toggle {
+    margin-left: 0.55rem;
+    flex-shrink: 0;
 }
 
 ::deep .top-nav-tab {
@@ -55,6 +67,10 @@
 @media (max-width: 760px) {
     ::deep .top-nav-header {
         flex-wrap: wrap;
+    }
+
+    ::deep .top-nav-right {
+        width: 100%;
     }
 
     ::deep .top-nav-tabs {
