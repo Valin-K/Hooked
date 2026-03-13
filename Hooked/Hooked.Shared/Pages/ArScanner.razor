@@ -2,6 +2,7 @@
 @using Hooked.Shared.Services.AI
 @using Microsoft.AspNetCore.Components.Forms
 @inject IGeminiFishSpeciesService GeminiFishSpeciesService
+@inject ILeonardoFishImageService LeonardoFishImageService
 
 <PageTitle>AI Scanner</PageTitle>
 
@@ -15,7 +16,7 @@
 
     @if (isScanning)
     {
-        <div style="margin-top:12px">Scanning...</div>
+        <div style="margin-top:12px">Scanning and generating illustration...</div>
     }
 
     @if (!string.IsNullOrWhiteSpace(errorMessage))
@@ -27,6 +28,28 @@
     {
         <div style="margin-top:12px;font-size:1.2rem;font-weight:700">@speciesName</div>
     }
+
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div style="margin-top:8px">@statusMessage</div>
+}
+
+    @if (!string.IsNullOrWhiteSpace(generatedFishImageUrl))
+    {
+        <div style="margin-top:12px">
+            <img src="@generatedFishImageUrl"
+                 alt="Generated illustration of @speciesName"
+                 style="display:block;width:100%;max-width:520px;height:auto;object-fit:contain;border-radius:12px" />
+        </div>
+    }
+
+    @if (diagnosticLogs.Count > 0)
+    {
+        <div style="margin-top:12px">
+            <div class="muted">Logs</div>
+            <pre style="margin-top:6px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto">@string.Join("\n", diagnosticLogs)</pre>
+        </div>
+    }
 </div>
 
 <bottom-nav />
@@ -36,7 +59,10 @@
 
     private bool isScanning;
     private string? speciesName;
+    private string? generatedFishImageUrl;
+    private string? statusMessage;
     private string? errorMessage;
+    private readonly List<string> diagnosticLogs = new();
 
     private async Task ScanFromPhotoAsync(InputFileChangeEventArgs eventArgs)
     {
@@ -54,7 +80,11 @@
 
         isScanning = true;
         speciesName = null;
+        generatedFishImageUrl = null;
+        statusMessage = "Scanning fish species...";
         errorMessage = null;
+        diagnosticLogs.Clear();
+        await AppendLogAsync("Scanner started.");
 
         try
         {
@@ -69,33 +99,87 @@
             if (memoryStream.Length == 0)
             {
                 errorMessage = "No photo data was found.";
+                await AppendLogAsync("No photo data was found.");
                 return;
             }
 
+            await AppendLogAsync("Submitting photo to Gemini for species detection.");
             speciesName = await GeminiFishSpeciesService
                 .IdentifyFishSpeciesAsync(memoryStream.ToArray(), mimeType);
+            await AppendLogAsync($"Species detected: {speciesName}");
+            await InvokeAsync(StateHasChanged);
+
+            if (!string.IsNullOrWhiteSpace(speciesName)
+                && !speciesName.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+            {
+                statusMessage = $"Generating image for {speciesName}...";
+                await AppendLogAsync($"Starting Leonardo generation for {speciesName}.");
+                await InvokeAsync(StateHasChanged);
+
+                generatedFishImageUrl = await LeonardoFishImageService
+                    .GenerateFishImageUrlAsync(speciesName, AppendLogAsync);
+
+                statusMessage = "Image generated.";
+                await AppendLogAsync("Image generation completed.");
+            }
+            else
+            {
+                statusMessage = "Species is unknown. Image generation skipped.";
+                await AppendLogAsync("Species unknown. Leonardo generation skipped.");
+            }
         }
         catch (OperationCanceledException)
         {
             errorMessage = "Photo processing was canceled.";
+            statusMessage = null;
+            await AppendLogAsync("Processing canceled.");
         }
         catch (IOException)
         {
             errorMessage = "Photo must be smaller than 10 MB.";
+            statusMessage = null;
+            await AppendLogAsync("Photo exceeded the 10 MB limit.");
         }
         catch (InvalidOperationException ex)
         {
             errorMessage = ex.Message;
+            statusMessage = null;
+            await AppendLogAsync($"Invalid operation: {ex.Message}");
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             errorMessage = string.IsNullOrWhiteSpace(ex.Message)
-                ? "Scanner is temporarily unavailable."
+                ? "Network request failed while generating the image."
                 : ex.Message;
+            statusMessage = null;
+            await AppendLogAsync($"Network error: {errorMessage}");
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Invalid response was returned by the image service."
+                : ex.Message;
+            statusMessage = null;
+            await AppendLogAsync($"JSON parsing error: {errorMessage}");
         }
         finally
         {
             isScanning = false;
+            await AppendLogAsync("Scanner finished.");
         }
+    }
+
+    private Task AppendLogAsync(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return Task.CompletedTask;
+        }
+
+        return InvokeAsync(() =>
+        {
+            diagnosticLogs.Add($"{DateTime.Now:HH:mm:ss} {message}");
+            StateHasChanged();
+        });
     }
 }

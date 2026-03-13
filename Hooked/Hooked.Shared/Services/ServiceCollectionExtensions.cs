@@ -19,6 +19,10 @@ namespace Hooked.Shared.Services
             services.AddScoped<IMapService, MapService>();
             services.AddSingleton<IGeminiFishSpeciesService>(_ =>
                 new GeminiFishSpeciesService(configuration["Gemini:ApiKey"]));
+            services.AddSingleton<ILeonardoFishImageService>(_ =>
+                new LeonardoFishImageService(
+                    configuration["LeonardoAI:ApiKey"],
+                    configuration["ReferenceImageId"]));
 
             // Additional services (leaderboards, stats, AR scanner integration) can be added later
             return services;
