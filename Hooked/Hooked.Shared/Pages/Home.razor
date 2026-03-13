@@ -8,16 +8,7 @@
 <PageTitle>Hooked</PageTitle>
 
 <div class="mobile-shell">
-    <header class="app-header ocean-glass">
-        <div class="brand-lockup">
-            <span class="brand-mark">◌</span>
-            <div>
-                <div class="title">Hooked</div>
-                <div class="brand-subtitle">Ocean Intelligence</div>
-            </div>
-        </div>
-        <button class="ghost-icon" type="button" title="Open profile" @onclick="GoToProfile">☰</button>
-    </header>
+    <TopNavBar Subtitle="Ocean Intelligence" />
 
     <section class="hero ocean-glass">
         <div class="badge-pill">AI-Powered Catch Hub</div>
@@ -42,13 +33,6 @@
             <div class="stat-label">Best Length</div>
             <div class="stat-value">@longestCatchText</div>
         </article>
-    </section>
-
-    <section class="quick-actions">
-        <button class="action" @onclick="GoToMap">Explore Map</button>
-        <button class="action" @onclick="GoToCounter">View Insights</button>
-        <button class="action" @onclick="GoToFishDex">FishDex</button>
-        <button class="action" @onclick="GoToLeaderboard">Leaderboard</button>
     </section>
 
     <section class="ai-highlight ocean-glass">
@@ -136,10 +120,6 @@
     [Inject]
     public NavigationManager NavigationManager { get; set; } = null!;
 
-    private void GoToProfile() => NavigationManager.NavigateTo("/profile");
-    private void GoToMap() => NavigationManager.NavigateTo("/map");
-    private void GoToCounter() => NavigationManager.NavigateTo("/counter");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
-    private void GoToLeaderboard() => NavigationManager.NavigateTo("/leaderboard");
     private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 }
