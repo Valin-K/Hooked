@@ -1,0 +1,19 @@
+@page "/map"
+@page "/fishdex"
+@page "/profile"
+@page "/fish/{Id:guid}"
+
+<PageTitle>Not Implemented</PageTitle>
+
+<div class="card">
+    <div class="title">Feature not implemented</div>
+    <div class="muted" style="margin-top:8px">This part of the app is not ready yet.</div>
+    <a class="action primary" style="margin-top:12px;text-decoration:none;display:inline-block" href="/">Go Home</a>
+</div>
+
+<bottom-nav />
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+}

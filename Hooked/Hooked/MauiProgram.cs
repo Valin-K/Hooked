@@ -1,6 +1,7 @@
 ﻿using Hooked.Services;
 using Hooked.Shared.Data;
 using Hooked.Shared.Services;
+using Hooked.Shared.Services.Camera;
 using Microsoft.Extensions.Logging;
 
 namespace Hooked
@@ -19,6 +20,7 @@ namespace Hooked
 
             // Add device-specific services used by the Hooked.Shared project
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
+            builder.Services.AddSingleton<IPhotoCaptureService, PhotoCaptureService>();
 
             var databasePath = Path.Combine(FileSystem.AppDataDirectory, "hooked.db");
             builder.Services.AddHookedDatabase(databasePath);

@@ -1,9 +1,21 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
 
 <div class="layout-shell">
     <main class="layout-main">
         <article class="content layout-content">
-            @Body
+            <ErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent>
+                    <div class="card">
+                        <div class="title">Something went wrong</div>
+                        <div class="muted" style="margin-top:8px">Please try reloading this screen.</div>
+                        <button class="action primary" style="margin-top:12px" type="button" @onclick="ReloadCurrentPage">Reload</button>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
         </article>
     </main>
 </div>
@@ -13,3 +25,10 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private void ReloadCurrentPage()
+    {
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+}

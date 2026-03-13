@@ -28,14 +28,28 @@
             <div class="muted">Coming soon</div>
         </div>
     </div>
+
+    @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
+    {
+        <div class="muted" style="margin-top:12px">@loadErrorMessage</div>
+    }
 </div>
 
 @code{
     private int totalCatches = 0;
+    private string? loadErrorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        var items = await CatchService.GetRecentCatchesAsync(100);
-        totalCatches = items?.Count() ?? 0;
+        try
+        {
+            var items = await CatchService.GetRecentCatchesAsync(100);
+            totalCatches = items?.Count() ?? 0;
+        }
+        catch (Exception)
+        {
+            totalCatches = 0;
+            loadErrorMessage = "Could not load activity right now.";
+        }
     }
 }

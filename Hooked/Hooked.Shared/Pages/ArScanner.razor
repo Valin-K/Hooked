@@ -1,0 +1,70 @@
+@page "/arscanner"
+@using Hooked.Shared.Services.AI
+@using Hooked.Shared.Services.Camera
+@inject IPhotoCaptureService PhotoCaptureService
+@inject IGeminiFishSpeciesService GeminiFishSpeciesService
+
+<PageTitle>AI Scanner</PageTitle>
+
+<div class="card">
+    <div class="title">Open AI Scanner</div>
+    <div class="muted">Take a fish photo and identify the species.</div>
+
+    <button class="action primary" style="margin-top:12px" type="button" disabled="@isScanning" @onclick="ScanAsync">
+        @(isScanning ? "Scanning..." : "Take Photo")
+    </button>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div style="margin-top:12px;color:#ff6b6b">@errorMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(speciesName))
+    {
+        <div style="margin-top:12px;font-size:1.2rem;font-weight:700">@speciesName</div>
+    }
+</div>
+
+<bottom-nav />
+
+@code {
+    private bool isScanning;
+    private string? speciesName;
+    private string? errorMessage;
+
+    private async Task ScanAsync()
+    {
+        isScanning = true;
+        speciesName = null;
+        errorMessage = null;
+
+        try
+        {
+            var capturedPhoto = await PhotoCaptureService.CapturePhotoAsync();
+            if (capturedPhoto is null)
+            {
+                errorMessage = "No photo was captured.";
+                return;
+            }
+
+            speciesName = await GeminiFishSpeciesService
+                .IdentifyFishSpeciesAsync(capturedPhoto.Bytes, capturedPhoto.MimeType);
+        }
+        catch (OperationCanceledException)
+        {
+            errorMessage = "Photo capture was canceled.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Scanner is temporarily unavailable.";
+        }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+}

@@ -60,7 +60,11 @@
 
     <section class="recent">
         <h3>Recent catches</h3>
-        @if (recentCatches is null)
+        @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
+        {
+            <p class="muted">@loadErrorMessage</p>
+        }
+        else if (recentCatches is null)
         {
             <p class="muted">Loading…</p>
         }
@@ -90,27 +94,36 @@
 
 @code {
     private IEnumerable<Hooked.Shared.Data.CatchRecord>? recentCatches;
+    private string? loadErrorMessage;
     private int recentCatchCount;
     private int todayCatchCount;
     private string longestCatchText = "—";
 
     protected override async Task OnInitializedAsync()
     {
-        recentCatches = await CatchService.GetRecentCatchesAsync(20);
-
-        var catchList = recentCatches?.ToList() ?? [];
-        recentCatchCount = catchList.Count;
-        todayCatchCount = catchList.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
-
-        var longestCatch = catchList
-            .Where(c => c.LengthMeters.HasValue)
-            .Select(c => c.LengthMeters!.Value)
-            .DefaultIfEmpty()
-            .Max();
-
-        if (longestCatch > 0)
+        try
         {
-            longestCatchText = $"{longestCatch:F2} m";
+            recentCatches = await CatchService.GetRecentCatchesAsync(20);
+
+            var catchList = recentCatches?.ToList() ?? [];
+            recentCatchCount = catchList.Count;
+            todayCatchCount = catchList.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
+
+            var longestCatch = catchList
+                .Where(c => c.LengthMeters.HasValue)
+                .Select(c => c.LengthMeters!.Value)
+                .DefaultIfEmpty()
+                .Max();
+
+            if (longestCatch > 0)
+            {
+                longestCatchText = $"{longestCatch:F2} m";
+            }
+        }
+        catch (Exception)
+        {
+            recentCatches = [];
+            loadErrorMessage = "Could not load catches right now.";
         }
     }
 
