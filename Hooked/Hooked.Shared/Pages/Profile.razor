@@ -7,22 +7,7 @@
 <PageTitle>@GetPageTitle()</PageTitle>
 
 <div class="mobile-shell profile-shell">
-    <header class="app-header ocean-glass profile-nav-header">
-        <div class="brand-lockup">
-            <span class="brand-mark">◌</span>
-            <div>
-                <div class="title">Profile</div>
-                <div class="brand-subtitle">Social Catchbook</div>
-            </div>
-        </div>
-        <div class="header-actions">
-            <button class="ghost-icon" type="button" title="Back to home" @onclick="GoHome">⌂</button>
-            @if (IsViewingOtherUser)
-            {
-                <button class="ghost-icon" type="button" title="Go to my profile" @onclick="GoToMyProfile">◎</button>
-            }
-        </div>
-    </header>
+    <TopNavBar Subtitle="Social Catchbook" />
 
     @if (_isLoading)
     {
@@ -450,11 +435,6 @@
     private void GoHome()
     {
         NavigationManager.NavigateTo("/");
-    }
-
-    private void GoToMyProfile()
-    {
-        NavigationManager.NavigateTo("/profile");
     }
 
     private sealed class ProfileCatchItem

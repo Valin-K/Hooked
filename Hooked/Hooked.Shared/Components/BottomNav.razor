@@ -3,31 +3,31 @@
 
 <nav class="bottom-nav">
     <a href="/" class="@GetNavItemClass("/")" title="Home">
-        <span class="nav-icon">⌂</span>
+        <span class="nav-icon">@GetNavIcon("/", "⌂", "⌂")</span>
         <div class="label">Home</div>
     </a>
     <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed">
-        <span class="nav-icon">◒</span>
+        <span class="nav-icon">@GetNavIcon("/feed", "◒", "◕")</span>
         <div class="label">Feed</div>
     </a>
     <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish">
-        <span class="nav-icon">◉</span>
+        <span class="nav-icon">@GetNavIcon("/arscanner", "◎", "◉")</span>
         <div class="label">Scan</div>
     </a>
     <a href="/map" class="@GetNavItemClass("/map")" title="Map">
-        <span class="nav-icon">⌖</span>
+        <span class="nav-icon">@GetNavIcon("/map", "⌖", "🧭")</span>
         <div class="label">Map</div>
     </a>
     <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary">
-        <span class="nav-icon">◍</span>
+        <span class="nav-icon">@GetNavIcon("/fishdex", "◍", "◉")</span>
         <div class="label">FishDex</div>
     </a>
     <a href="/leaderboard" class="@GetNavItemClass("/leaderboard")" title="Leaderboard">
-        <span class="nav-icon">★</span>
+        <span class="nav-icon">@GetNavIcon("/leaderboard", "☆", "★")</span>
         <div class="label">Ranks</div>
     </a>
     <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile">
-        <span class="nav-icon">◌</span>
+        <span class="nav-icon">@GetNavIcon("/profile", "◌", "◎")</span>
         <div class="label">Profile</div>
     </a>
 </nav>
@@ -57,5 +57,29 @@
         return isActive
             ? "nav-item active"
             : "nav-item";
+    }
+
+    private string GetNavIcon(string href, string defaultIcon, string activeIcon)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var currentPath = $"/{relativePath.Split('?', '#')[0]}".TrimEnd('/');
+        var normalizedHref = href.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(currentPath))
+        {
+            currentPath = "/";
+        }
+
+        if (string.IsNullOrEmpty(normalizedHref))
+        {
+            normalizedHref = "/";
+        }
+
+        var isActive = normalizedHref == "/"
+            ? currentPath.Equals("/", StringComparison.OrdinalIgnoreCase)
+            : currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase) ||
+              currentPath.StartsWith($"{normalizedHref}/", StringComparison.OrdinalIgnoreCase);
+
+        return isActive ? activeIcon : defaultIcon;
     }
 }
