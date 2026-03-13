@@ -2,21 +2,11 @@
 @using Hooked.Shared.Services
 @inject ILeaderboardService LeaderboardService
 @inject ISocialService SocialService
-@inject NavigationManager NavigationManager
 
 <PageTitle>Leaderboard · Hooked</PageTitle>
 
 <div class="mobile-shell leaderboard-shell">
-    <header class="app-header ocean-glass">
-        <div class="brand-lockup">
-            <span class="brand-mark">?</span>
-            <div>
-                <div class="title">Leaderboard</div>
-                <div class="brand-subtitle">Top Anglers</div>
-            </div>
-        </div>
-        <button class="ghost-icon" type="button" title="Back to home" @onclick="@(() => NavigationManager.NavigateTo("/"))">?</button>
-    </header>
+    <TopNavBar Subtitle="Top Anglers" />
 
     <div class="lb-filters ocean-glass">
         <div class="filter-group">

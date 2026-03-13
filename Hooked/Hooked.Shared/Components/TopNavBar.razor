@@ -1,0 +1,116 @@
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<header class="app-header ocean-glass top-nav-header">
+    <div class="brand-lockup">
+        <span class="brand-mark">◌</span>
+        <div>
+            <div class="title">Hooked</div>
+            <div class="brand-subtitle">@Subtitle</div>
+        </div>
+    </div>
+
+    <div class="top-nav-right">
+        <nav class="top-nav-tabs" aria-label="Primary navigation">
+            @foreach (var item in NavItems)
+            {
+                <a href="@item.Href" class="@GetNavItemClass(item)" title="@item.Label">
+                    <span class="top-nav-icon">@GetNavIcon(item)</span>
+                    @if (!item.IconOnly)
+                    {
+                        <span>@item.Label</span>
+                    }
+                </a>
+            }
+        </nav>
+
+        <button class="ghost-icon top-theme-toggle"
+                type="button"
+                title="@GetThemeButtonTitle()"
+                @onclick="ToggleThemeAsync">
+            @GetThemeButtonIcon()
+        </button>
+    </div>
+</header>
+
+@code {
+    [Parameter]
+    public string Subtitle { get; set; } = "Ocean Intelligence";
+
+    private bool _isDarkMode = true;
+
+    private static readonly IReadOnlyList<NavItem> NavItems =
+    [
+        new("/", "Home", "⌂", "⌂", true),
+        new("/map", "Explore Map", "⌖", "🧭"),
+        new("/counter", "Insights", "◔", "◕"),
+        new("/fishdex", "FishDex", "◍", "◉"),
+        new("/leaderboard", "Leaderboard", "☆", "★"),
+        new("/profile", "Profile", "◌", "◎")
+    ];
+
+    private string GetNavItemClass(NavItem item)
+    {
+        return IsRouteActive(item.Href)
+            ? "top-nav-tab active" + (item.IconOnly ? " icon-only" : string.Empty)
+            : "top-nav-tab" + (item.IconOnly ? " icon-only" : string.Empty);
+    }
+
+    private string GetNavIcon(NavItem item)
+    {
+        return IsRouteActive(item.Href)
+            ? item.ActiveIcon
+            : item.DefaultIcon;
+    }
+
+    private bool IsRouteActive(string href)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var currentPath = $"/{relativePath.Split('?', '#')[0]}".TrimEnd('/');
+        var normalizedHref = href.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(currentPath))
+        {
+            currentPath = "/";
+        }
+
+        if (string.IsNullOrEmpty(normalizedHref))
+        {
+            normalizedHref = "/";
+        }
+
+        return normalizedHref == "/"
+            ? currentPath.Equals("/", StringComparison.OrdinalIgnoreCase)
+            : currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase) ||
+              currentPath.StartsWith($"{normalizedHref}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record NavItem(
+        string Href,
+        string Label,
+        string DefaultIcon,
+        string ActiveIcon,
+        bool IconOnly = false);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
+        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+        StateHasChanged();
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        var theme = await JS.InvokeAsync<string>("hookedTheme.toggleTheme");
+        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetThemeButtonIcon() => _isDarkMode ? "☀" : "☾";
+
+    private string GetThemeButtonTitle() => _isDarkMode ? "Switch to light mode" : "Switch to dark mode";
+}
