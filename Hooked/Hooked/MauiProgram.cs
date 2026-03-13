@@ -24,9 +24,6 @@ namespace Hooked
             builder.Services.AddHookedDatabase(databasePath);
             builder.Services.AddHookedServices(builder.Configuration);
 
-            // Register domain services for Blazor UI inside MAUI
-            builder.Services.AddHookedServices();
-
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG
