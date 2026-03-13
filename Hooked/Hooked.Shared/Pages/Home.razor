@@ -80,7 +80,7 @@
                     <article class="catch-card" @onclick="() => OpenCatch(c.Id)">
                         <div class="catch-photo">@((c.PhotoPath is null) ? "◍" : "◉")</div>
                         <div class="catch-meta">
-                            <div class="species">@c.Species?.CommonName ?? "Unknown"</div>
+                            <div class="species">@c.Species?.CommonName</div>
                             <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("g")</div>
                         </div>
                     </article>
