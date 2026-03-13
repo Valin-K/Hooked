@@ -1,3 +1,4 @@
+@implements IDisposable
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
 
@@ -38,6 +39,11 @@
     public string Subtitle { get; set; } = "Ocean Intelligence";
 
     private bool _isDarkMode = true;
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
 
     private static readonly IReadOnlyList<NavItem> NavItems =
     [
@@ -113,4 +119,14 @@
     private string GetThemeButtonIcon() => _isDarkMode ? "☀" : "☾";
 
     private string GetThemeButtonTitle() => _isDarkMode ? "Switch to light mode" : "Switch to dark mode";
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
 }

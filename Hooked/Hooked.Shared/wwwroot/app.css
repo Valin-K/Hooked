@@ -14,6 +14,11 @@
     --card-border-accent: rgba(169, 236, 255, 0.26);
     --surface-muted-bg: rgba(2, 26, 43, 0.24);
     --surface-muted-border: rgba(255, 255, 255, 0.16);
+    --brand-mark-color: #9ceaff;
+    --brand-mark-start: rgba(186, 239, 255, 0.9);
+    --brand-mark-end: rgba(18, 143, 189, 0.32);
+    --badge-text: #bae6fd;
+    --badge-border: rgba(255, 255, 255, 0.24);
 }
 
 :root[data-theme="light"] {
@@ -32,6 +37,11 @@
     --card-border-accent: rgba(15, 76, 129, 0.28);
     --surface-muted-bg: rgba(222, 239, 255, 0.78);
     --surface-muted-border: rgba(15, 76, 129, 0.24);
+    --brand-mark-color: #0b5f8f;
+    --brand-mark-start: rgba(111, 204, 239, 0.65);
+    --brand-mark-end: rgba(36, 132, 184, 0.3);
+    --badge-text: #1e5474;
+    --badge-border: rgba(19, 88, 138, 0.35);
 }
 
 * {
