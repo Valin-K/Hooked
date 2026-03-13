@@ -17,7 +17,7 @@ Directory.CreateDirectory(Path.GetDirectoryName(databasePath) ?? builder.Environ
 builder.Services.AddHookedDatabase(databasePath);
 
 // Register domain services
-builder.Services.AddHookedServices();
+builder.Services.AddHookedServices(builder.Configuration);
 
 var app = builder.Build();
 

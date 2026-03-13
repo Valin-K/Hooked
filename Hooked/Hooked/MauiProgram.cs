@@ -22,6 +22,7 @@ namespace Hooked
 
             var databasePath = Path.Combine(FileSystem.AppDataDirectory, "hooked.db");
             builder.Services.AddHookedDatabase(databasePath);
+            builder.Services.AddHookedServices(builder.Configuration);
 
             builder.Services.AddMauiBlazorWebView();
 
