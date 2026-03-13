@@ -16,6 +16,7 @@ namespace Hooked.Shared.Services
             services.AddScoped<ICatchService, CatchService>();
             services.AddScoped<ISocialService, SocialService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
+            services.AddScoped<IMapService, MapService>();
             services.AddSingleton<IGeminiFishSpeciesService>(_ =>
                 new GeminiFishSpeciesService(configuration["Gemini:ApiKey"]));
 

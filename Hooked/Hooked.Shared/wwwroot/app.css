@@ -109,3 +109,151 @@ h1:focus {
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.45);
 }
+
+/* ?? Mapbox SVG pin marker ?? */
+/* No filter/drop-shadow on the container — SVG handles its own shadow via <filter> or box-shadow */
+/* The element div is sized exactly PIN_W × PIN_H so anchor:'bottom' is pixel-perfect */
+
+/* Popup ?? */
+.mapboxgl-popup-content {
+    background: rgba(5, 12, 28, 0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 40px rgba(1, 7, 18, 0.7) !important;
+    padding: 0 !important;
+    color: #f7fbff;
+    overflow: hidden;
+}
+
+.mapboxgl-popup-tip {
+    border-top-color: rgba(5, 12, 28, 0.96) !important;
+    border-bottom-color: rgba(5, 12, 28, 0.96) !important;
+}
+
+.mapboxgl-popup-close-button {
+    color: #9eb3ca !important;
+    font-size: 1rem !important;
+    padding: 0.3rem 0.5rem !important;
+    line-height: 1 !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.hk-popup {
+    display: flex;
+    gap: 0;
+    min-width: 160px;
+}
+
+.hk-popup-swatch {
+    width: 5px;
+    flex-shrink: 0;
+    border-radius: 14px 0 0 14px;
+}
+
+.hk-popup-body {
+    padding: 0.7rem 0.85rem 0.7rem 0.65rem;
+    flex: 1;
+}
+
+.hk-popup-species {
+    font-weight: 700;
+    font-size: 0.88rem;
+    line-height: 1.2;
+}
+
+.hk-popup-meta {
+    font-size: 0.76rem;
+    color: #9eb3ca;
+    margin-top: 0.2rem;
+}
+
+.hk-popup-user {
+    font-size: 0.74rem;
+    color: #69d8ff;
+    margin-top: 0.3rem;
+}
+
+.hk-popup-time {
+    font-size: 0.68rem;
+    color: #7a95ad;
+    margin-top: 0.1rem;
+}
+
+/* ?? Style toggle — rendered via Mapbox IControl in top-right slot ?? */
+.hk-style-ctrl {
+    border-radius: 8px !important;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+}
+
+.hk-style-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(5, 12, 28, 0.92);
+    border: none;
+    color: #e2f0fb;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 0.4rem 0.65rem;
+    cursor: pointer;
+    white-space: nowrap;
+    width: 100%;
+    transition: background 0.15s ease;
+    line-height: 1;
+}
+
+.hk-style-btn i {
+    font-size: 0.9rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.hk-style-btn:hover {
+    background: rgba(14, 32, 70, 0.98);
+}
+
+/* ?? Species legend — lives in .map-wrap (outside overflow:hidden canvas) ?? */
+.hk-legend {
+    position: absolute;
+    bottom: 2.2rem;   /* above the scale bar */
+    right: 0.75rem;
+    z-index: 10;
+    background: rgba(5, 12, 28, 0.88);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    padding: 0.55rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.38rem;
+    pointer-events: none;
+    max-width: 175px;
+}
+
+.hk-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hk-legend-dot {
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.3);
+}
+
+.hk-legend-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #e2f0fb;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}

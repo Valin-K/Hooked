@@ -1,0 +1,224 @@
+@page "/map"
+@using Hooked.Shared.Services
+@using Microsoft.JSInterop
+@inject IMapService MapService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
+<PageTitle>Explore Map · Hooked</PageTitle>
+
+<div class="map-page">
+    <header class="map-header ocean-glass">
+        <div class="brand-lockup">
+            <span class="brand-mark">?</span>
+            <div>
+                <div class="title">Explore Map</div>
+                <div class="brand-subtitle">Catch Hotspots</div>
+            </div>
+        </div>
+        <button class="ghost-icon" type="button" title="Back to home" @onclick="@(() => NavigationManager.NavigateTo("/"))">?</button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) &&
+         !MapService.MapboxAccessToken.StartsWith("YOUR_"))
+    {
+        <div class="map-wrap">
+            <div id="hooked-map" class="map-canvas"></div>
+
+            @if (_isLoading)
+            {
+                <div class="map-overlay-state">
+                    <div class="map-spinner"></div>
+                    <span>Loading catches…</span>
+                </div>
+            }
+            else if (_loadError is not null)
+            {
+                <div class="map-overlay-state map-overlay-error">@_loadError</div>
+            }
+            else
+            {
+                <div class="map-pin-count ocean-glass">
+                    @_pins.Count catch@(_pins.Count == 1 ? "" : "es") on map
+                </div>
+            }
+        </div>
+
+        <div class="map-catch-list">
+            <div class="map-list-title">Pinned catches</div>
+            @if (_pins.Count == 0 && !_isLoading)
+            {
+                <div class="map-list-empty muted">No catches with location data yet.</div>
+            }
+            else
+            {
+                @foreach (var pin in _pins)
+                {
+                    <button class="map-catch-row ocean-glass" type="button"
+                            @onclick="() => FlyToPin(pin)">
+                        <div class="map-catch-dot" style="background: @GetSpeciesColour(pin.SpeciesName)"></div>
+                        <div class="map-catch-info">
+                            <div class="map-catch-species">@pin.SpeciesName</div>
+                            <div class="map-catch-detail muted">
+                                @GetDisplayName(pin.DisplayName, pin.Username)
+                                @if (pin.LengthMeters.HasValue)
+                                {
+                                    <span> · @($"{pin.LengthMeters.Value:F2} m")</span>
+                                }
+                                <span> · @pin.CaughtAt.ToLocalTime().ToString("MMM d")</span>
+                            </div>
+                        </div>
+                        <div class="map-catch-coord muted">
+                            @($"{pin.Lat:F2}°, {pin.Lng:F2}°")
+                        </div>
+                    </button>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <section class="map-no-token ocean-glass">
+            <div class="map-no-token-title">Mapbox token required</div>
+            <div class="map-no-token-body muted">
+                Add your public Mapbox access token to <code>appsettings.json</code> under
+                <code>Mapbox:AccessToken</code> to enable the map.
+                Get a free token at <a href="https://mapbox.com" target="_blank" rel="noopener">mapbox.com</a>.
+            </div>
+        </section>
+    }
+
+    <bottom-nav />
+</div>
+
+@code {
+    private const string MapContainerId = "hooked-map";
+
+    private List<MapCatchPinDto> _pins = [];
+    private bool _isLoading = true;
+    private string? _loadError;
+    private bool _mapInitialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) ||
+            MapService.MapboxAccessToken.StartsWith("YOUR_"))
+        {
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            _pins = (await MapService.GetCatchPinsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _loadError = $"Could not load catches: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _mapInitialized) return;
+        if (string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) ||
+            MapService.MapboxAccessToken.StartsWith("YOUR_")) return;
+
+        _mapInitialized = true;
+
+        // Compute a sensible default centre from the pins, or fall back to world view
+        var (centerLng, centerLat, zoom) = GetDefaultView(_pins);
+
+        try
+        {
+            await JS.InvokeVoidAsync("import", "./_content/Hooked.Shared/map-interop.js");
+        }
+        catch
+        {
+            // module already loaded or classic script — ignore
+        }
+
+        await JS.InvokeVoidAsync(
+            "hookedMap.initMap",
+            MapContainerId,
+            MapService.MapboxAccessToken,
+            centerLng,
+            centerLat,
+            zoom);
+
+        if (_pins.Count > 0)
+        {
+            await PushMarkersAsync();
+        }
+    }
+
+    private async Task FlyToPin(MapCatchPinDto pin)
+    {
+        if (!_mapInitialized) return;
+        await JS.InvokeVoidAsync("hookedMap.flyTo", MapContainerId, pin.Lng, pin.Lat, 12);
+    }
+
+    private async Task PushMarkersAsync()
+    {
+        var markerData = _pins.Select(p => new
+        {
+            lat = p.Lat,
+            lng = p.Lng,
+            species = p.SpeciesName,
+            username = p.Username,
+            length = p.LengthMeters.HasValue ? $"{p.LengthMeters.Value:F2}" : (string?)null,
+            weight = p.WeightKg.HasValue ? $"{p.WeightKg.Value:F2}" : (string?)null,
+            hasPhoto = p.HasPhoto,
+            time = p.CaughtAt.ToLocalTime().ToString("MMM d, yyyy")
+        }).ToArray();
+
+        await JS.InvokeVoidAsync("hookedMap.addMarkers", MapContainerId, markerData);
+    }
+
+    private static (double lng, double lat, double zoom) GetDefaultView(List<MapCatchPinDto> pins)
+    {
+        if (pins.Count == 0)
+            return (151.2093, -33.8688, 7); // default to Sydney, NSW
+
+        var avgLat = pins.Average(p => p.Lat);
+        var avgLng = pins.Average(p => p.Lng);
+        return (avgLng, avgLat, pins.Count == 1 ? 10 : 7);
+    }
+
+    private static string GetDisplayName(string? displayName, string username)
+        => string.IsNullOrWhiteSpace(displayName) ? username : displayName;
+
+    private static string GetSpeciesColour(string speciesName) =>
+        (speciesName ?? string.Empty).ToLowerInvariant() switch
+        {
+            "australian bass"     => "#4ade80",
+            "murray cod"          => "#fb923c",
+            "dusky flathead"      => "#facc15",
+            "yellowfin tuna"      => "#f472b6",
+            "mulloway"            => "#a78bfa",
+            "yellowtail kingfish" => "#38bdf8",
+            "snapper"             => "#f87171",
+            "bream"               => "#34d399",
+            _                     => "#69d8ff"
+        };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_mapInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("hookedMap.destroyMap", MapContainerId);
+            }
+            catch
+            {
+                // page already torn down
+            }
+        }
+    }
+}
