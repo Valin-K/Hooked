@@ -23,6 +23,9 @@ namespace Hooked
             var databasePath = Path.Combine(FileSystem.AppDataDirectory, "hooked.db");
             builder.Services.AddHookedDatabase(databasePath);
 
+            // Register domain services for Blazor UI inside MAUI
+            builder.Services.AddHookedServices();
+
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG

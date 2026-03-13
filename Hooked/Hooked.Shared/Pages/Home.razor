@@ -1,14 +1,76 @@
 ﻿@page "/"
+@using Hooked.Shared.Data
 @using Hooked.Shared.Services
-@inject IFormFactor FormFactor
+@inject ICatchService CatchService
+@inject IFishService FishService
+@inject IUserService UserService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Hooked</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="mobile-shell">
+    <header class="app-header">
+        <div class="title">Hooked</div>
+        <div class="profile-icon" title="Profile">🧭</div>
+    </header>
 
-Welcome to your new app running on <em>@factor</em> using <em>@platform</em>.
+    <section class="hero">
+        <div class="welcome">Good fishing, angler 🎣</div>
+        <div class="subtitle">Overview of recent activity</div>
+    </section>
+
+    <section class="quick-actions">
+        <button class="action primary" @onclick="ScanFish">📷 Scan Fish</button>
+        <button class="action" @onclick="GoToMap">🗺️ Map</button>
+        <button class="action" @onclick="GoToFishDex">🧾 FishDex</button>
+    </section>
+
+    <section class="recent">
+        <h3>Recent catches</h3>
+        @if (recentCatches is null)
+        {
+            <p class="muted">Loading…</p>
+        }
+        else if (!recentCatches.Any())
+        {
+            <p class="muted">No catches yet — start by scanning a fish.</p>
+        }
+        else
+        {
+            <div class="recent-list">
+                @foreach (var c in recentCatches)
+                {
+                    <article class="catch-card" @onclick="() => OpenCatch(c.Id)">
+                        <div class="catch-photo">@((c.PhotoPath is null) ? "🐟" : "📷")</div>
+                        <div class="catch-meta">
+                            <div class="species">@c.Species?.CommonName ?? "Unknown"</div>
+                            <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("g")</div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <bottom-nav />
+</div>
 
 @code {
-    private string factor => FormFactor.GetFormFactor();
-    private string platform => FormFactor.GetPlatform();
+    private IEnumerable<Hooked.Shared.Data.CatchRecord>? recentCatches;
+
+    protected override async Task OnInitializedAsync()
+    {
+        recentCatches = await CatchService.GetRecentCatchesAsync(20);
+    }
+
+    private void ScanFish()
+    {
+        NavigationManager.NavigateTo("/arscanner");
+    }
+
+    [Inject]
+    public NavigationManager NavigationManager { get; set; } = null!;
+
+    private void GoToMap() => NavigationManager.NavigateTo("/map");
+    private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
+    private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 }
