@@ -244,7 +244,7 @@ namespace Hooked.Shared.Services.AI
             }
 
             return value[..maxLength] + "...";
-        }aaa
+        }
 
         private static string BuildPrompt(string speciesName)
         {
