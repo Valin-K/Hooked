@@ -1,0 +1,475 @@
+@page "/profile"
+@page "/profile/{Username}"
+@using Hooked.Shared.Services
+@inject ISocialService SocialService
+@inject NavigationManager NavigationManager
+
+<PageTitle>@GetPageTitle()</PageTitle>
+
+<div class="mobile-shell profile-shell">
+    <header class="app-header ocean-glass profile-nav-header">
+        <div class="brand-lockup">
+            <span class="brand-mark">◌</span>
+            <div>
+                <div class="title">Profile</div>
+                <div class="brand-subtitle">Social Catchbook</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="ghost-icon" type="button" title="Back to home" @onclick="GoHome">⌂</button>
+            @if (IsViewingOtherUser)
+            {
+                <button class="ghost-icon" type="button" title="Go to my profile" @onclick="GoToMyProfile">◎</button>
+            }
+        </div>
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="ocean-glass state-card">
+            <p class="muted">Loading profile…</p>
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <section class="ocean-glass state-card">
+            <h1>Profile unavailable</h1>
+            <p class="muted">@_loadError</p>
+            <button class="action secondary" type="button" @onclick="ReloadAsync">Retry</button>
+        </section>
+    }
+    else if (_profile is null || _currentUser is null)
+    {
+        <section class="ocean-glass state-card">
+            <h1>Profile not found</h1>
+            <p class="muted">We couldn't find this angler.</p>
+            <button class="action secondary" type="button" @onclick="GoHome">Back to feed</button>
+        </section>
+    }
+    else
+    {
+        <section class="ocean-glass profile-summary">
+            <div class="summary-top">
+                <div class="profile-avatar">◌</div>
+                <div class="identity">
+                    <h1>@DisplayNameFor(_profile.DisplayName, _profile.Username)</h1>
+                    <div class="handle">@("@"+_profile.Username)</div>
+                    <div class="joined">Joined @_profile.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</div>
+                </div>
+            </div>
+            <div class="stats-grid profile-stats-grid">
+                <article class="stat-card ocean-glass">
+                    <div class="stat-label">Catches</div>
+                    <div class="stat-value">@_profile.CatchCount</div>
+                </article>
+                <article class="stat-card ocean-glass">
+                    <div class="stat-label">Followers</div>
+                    <div class="stat-value">@_profile.FollowerCount</div>
+                </article>
+                <article class="stat-card ocean-glass">
+                    <div class="stat-label">Following</div>
+                    <div class="stat-value">@_profile.FollowingCount</div>
+                </article>
+            </div>
+
+            @if (IsViewingOtherUser)
+            {
+                <button class="action @( _profile.IsFollowing ? "secondary" : "primary" ) follow-action"
+                        type="button"
+                        disabled="@_isFollowBusy"
+                        @onclick="ToggleFollowAsync">
+                    @(_profile.IsFollowing ? "Unfollow" : "Follow")
+                </button>
+            }
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(_actionError))
+        {
+            <section class="ocean-glass state-card compact-state">
+                <p class="muted">@_actionError</p>
+            </section>
+        }
+
+        <section class="profile-feed">
+            <div class="feed-header">
+                <h2>@(IsViewingOtherUser ? "Catches" : "Your catches")</h2>
+                <a href="/" class="feed-link">Back to home</a>
+            </div>
+
+            @if (_catchItems.Count == 0)
+            {
+                <section class="ocean-glass state-card compact-state">
+                    <p class="muted">No catches posted yet.</p>
+                </section>
+            }
+            else
+            {
+                <div class="catch-list">
+                    @foreach (var catchItem in _catchItems)
+                    {
+                        <article class="ocean-glass profile-catch-card">
+                            <div class="catch-head">
+                                <a class="catch-user" href="@GetProfileRoute(catchItem.Username)">
+                                    @DisplayNameFor(catchItem.DisplayName, catchItem.Username)
+                                </a>
+                                <span class="muted catch-time">@catchItem.CaughtAt.ToLocalTime().ToString("g")</span>
+                            </div>
+
+                            <div class="catch-species">@catchItem.SpeciesCommonName</div>
+                            <div class="catch-meta">
+                                <span>@FormatLength(catchItem.LengthMeters)</span>
+                                <span>@FormatWeight(catchItem.WeightKg)</span>
+                            </div>
+
+                            <div class="catch-actions">
+                                <button class="action @GetReactionActionClass(catchItem) profile-action-button"
+                                        type="button"
+                                        disabled="@_reactionBusyCatchIds.Contains(catchItem.CatchId)"
+                                        @onclick="() => ToggleReactionAsync(catchItem.CatchId)">
+                                    @(catchItem.ViewerHasReacted ? "Unlike" : "Like") · @catchItem.ReactionCount
+                                </button>
+                            </div>
+
+                            <div class="comment-panel">
+                                <div class="muted comment-count">@catchItem.CommentCount comments</div>
+
+                                @if (catchItem.RecentComments.Count == 0)
+                                {
+                                    <p class="muted empty-comments">No comments yet.</p>
+                                }
+                                else
+                                {
+                                    <ul class="comment-list">
+                                        @foreach (var comment in catchItem.RecentComments)
+                                        {
+                                            <li>
+                                                <span class="comment-user">@DisplayNameFor(comment.DisplayName, comment.Username)</span>
+                                                <span class="comment-text">@comment.CommentText</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+
+                                <div class="comment-composer">
+                                    <input class="comment-input"
+                                           maxlength="500"
+                                           placeholder="Add a comment…"
+                                           value="@GetCommentDraft(catchItem.CatchId)"
+                                           @oninput="e => UpdateCommentDraft(catchItem.CatchId, e.Value?.ToString())" />
+                                    <button class="action secondary comment-submit"
+                                            type="button"
+                                            disabled="@(!CanSubmitComment(catchItem.CatchId))"
+                                            @onclick="() => AddCommentAsync(catchItem.CatchId)">
+                                        Comment
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+
+    <bottom-nav />
+</div>
+
+@code {
+    [Parameter]
+    public string? Username { get; set; }
+
+    private SocialUserLookupDto? _currentUser;
+    private SocialProfileSummaryDto? _profile;
+    private List<ProfileCatchItem> _catchItems = [];
+    private readonly Dictionary<Guid, string> _commentDrafts = [];
+    private readonly HashSet<Guid> _reactionBusyCatchIds = [];
+    private readonly HashSet<Guid> _commentBusyCatchIds = [];
+    private bool _isLoading = true;
+    private bool _isFollowBusy;
+    private string? _loadError;
+    private string? _actionError;
+
+    private bool IsViewingOtherUser =>
+        _currentUser is not null &&
+        _profile is not null &&
+        _profile.UserId != _currentUser.Id;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _isLoading = true;
+        _isFollowBusy = false;
+        _loadError = null;
+        _actionError = null;
+        _profile = null;
+        _catchItems = [];
+        _commentDrafts.Clear();
+        _reactionBusyCatchIds.Clear();
+        _commentBusyCatchIds.Clear();
+
+        try
+        {
+            _currentUser = await SocialService.ResolveCurrentUserAsync();
+            var requestedUsername = string.IsNullOrWhiteSpace(Username) ? null : Username.Trim();
+
+            if (requestedUsername is null || requestedUsername.Equals(_currentUser.Username, StringComparison.OrdinalIgnoreCase))
+            {
+                _profile = await SocialService.GetProfileSummaryByIdAsync(_currentUser.Id, _currentUser.Id);
+            }
+            else
+            {
+                _profile = await SocialService.GetProfileSummaryByUsernameAsync(requestedUsername, _currentUser.Id);
+            }
+
+            if (_profile is not null)
+            {
+                var feedItems = await SocialService.GetUserFeedAsync(_profile.UserId, _currentUser.Id, 25);
+                _catchItems = feedItems.Select(MapFeedItem).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task ToggleFollowAsync()
+    {
+        if (_currentUser is null || _profile is null || _profile.UserId == _currentUser.Id)
+        {
+            return;
+        }
+
+        _actionError = null;
+        _isFollowBusy = true;
+
+        try
+        {
+            var changed = _profile.IsFollowing
+                ? await SocialService.UnfollowAsync(_currentUser.Id, _profile.UserId)
+                : await SocialService.FollowAsync(_currentUser.Id, _profile.UserId);
+
+            if (!changed)
+            {
+                return;
+            }
+
+            var followerCount = _profile.IsFollowing
+                ? Math.Max(0, _profile.FollowerCount - 1)
+                : _profile.FollowerCount + 1;
+
+            _profile = _profile with
+            {
+                IsFollowing = !_profile.IsFollowing,
+                FollowerCount = followerCount
+            };
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _isFollowBusy = false;
+        }
+    }
+
+    private async Task ToggleReactionAsync(Guid catchId)
+    {
+        if (_currentUser is null || _reactionBusyCatchIds.Contains(catchId))
+        {
+            return;
+        }
+
+        var catchItem = _catchItems.FirstOrDefault(c => c.CatchId == catchId);
+        if (catchItem is null)
+        {
+            return;
+        }
+
+        _actionError = null;
+        _reactionBusyCatchIds.Add(catchId);
+
+        try
+        {
+            var result = await SocialService.ToggleReactionAsync(catchId, _currentUser.Id);
+            catchItem.ViewerHasReacted = result.IsReacted;
+            catchItem.ReactionCount = result.ReactionCount;
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _reactionBusyCatchIds.Remove(catchId);
+        }
+    }
+
+    private async Task AddCommentAsync(Guid catchId)
+    {
+        if (_currentUser is null || _commentBusyCatchIds.Contains(catchId))
+        {
+            return;
+        }
+
+        var catchItem = _catchItems.FirstOrDefault(c => c.CatchId == catchId);
+        if (catchItem is null)
+        {
+            return;
+        }
+
+        var draft = GetCommentDraft(catchId);
+        if (string.IsNullOrWhiteSpace(draft))
+        {
+            return;
+        }
+
+        _actionError = null;
+        _commentBusyCatchIds.Add(catchId);
+
+        try
+        {
+            var comment = await SocialService.AddCommentAsync(catchId, _currentUser.Id, draft);
+            catchItem.CommentCount += 1;
+            catchItem.RecentComments = NormalizeRecentComments(catchItem.RecentComments.Append(comment));
+            _commentDrafts[catchId] = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _commentBusyCatchIds.Remove(catchId);
+        }
+    }
+
+    private static ProfileCatchItem MapFeedItem(SocialCatchFeedItemDto dto)
+    {
+        return new ProfileCatchItem
+        {
+            CatchId = dto.CatchId,
+            UserId = dto.UserId,
+            Username = dto.Username,
+            DisplayName = dto.DisplayName,
+            CaughtAt = dto.CaughtAt,
+            SpeciesCommonName = dto.SpeciesCommonName,
+            LengthMeters = dto.LengthMeters,
+            WeightKg = dto.WeightKg,
+            ReactionCount = dto.ReactionCount,
+            CommentCount = dto.CommentCount,
+            ViewerHasReacted = dto.ViewerHasReacted,
+            RecentComments = NormalizeRecentComments(dto.RecentComments)
+        };
+    }
+
+    private static List<SocialCommentDto> NormalizeRecentComments(IEnumerable<SocialCommentDto> comments)
+    {
+        return comments
+            .OrderByDescending(c => c.CommentedAt)
+            .Take(3)
+            .OrderBy(c => c.CommentedAt)
+            .ToList();
+    }
+
+    private string GetPageTitle()
+    {
+        if (_profile is null)
+        {
+            return "Profile · Hooked";
+        }
+
+        return $"{DisplayNameFor(_profile.DisplayName, _profile.Username)} · Hooked";
+    }
+
+    private static string DisplayNameFor(string? displayName, string username)
+    {
+        return string.IsNullOrWhiteSpace(displayName) ? username : displayName;
+    }
+
+    private static string FormatLength(double? lengthMeters)
+    {
+        return lengthMeters.HasValue ? $"{lengthMeters.Value:F2} m" : "Length —";
+    }
+
+    private static string FormatWeight(double? weightKg)
+    {
+        return weightKg.HasValue ? $"{weightKg.Value:F2} kg" : "Weight —";
+    }
+
+    private string GetReactionActionClass(ProfileCatchItem catchItem)
+    {
+        return catchItem.ViewerHasReacted ? "primary" : "secondary";
+    }
+
+    private string GetProfileRoute(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return "/profile";
+        }
+
+        if (_currentUser is not null && username.Equals(_currentUser.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            return "/profile";
+        }
+
+        return $"/profile/{Uri.EscapeDataString(username)}";
+    }
+
+    private string GetCommentDraft(Guid catchId)
+    {
+        return _commentDrafts.TryGetValue(catchId, out var draft) ? draft : string.Empty;
+    }
+
+    private void UpdateCommentDraft(Guid catchId, string? value)
+    {
+        _commentDrafts[catchId] = value ?? string.Empty;
+    }
+
+    private bool CanSubmitComment(Guid catchId)
+    {
+        return !_commentBusyCatchIds.Contains(catchId) &&
+               !string.IsNullOrWhiteSpace(GetCommentDraft(catchId));
+    }
+
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private void GoToMyProfile()
+    {
+        NavigationManager.NavigateTo("/profile");
+    }
+
+    private sealed class ProfileCatchItem
+    {
+        public Guid CatchId { get; init; }
+        public Guid UserId { get; init; }
+        public string Username { get; init; } = string.Empty;
+        public string? DisplayName { get; init; }
+        public DateTime CaughtAt { get; init; }
+        public string SpeciesCommonName { get; init; } = string.Empty;
+        public double? LengthMeters { get; init; }
+        public double? WeightKg { get; init; }
+        public int ReactionCount { get; set; }
+        public int CommentCount { get; set; }
+        public bool ViewerHasReacted { get; set; }
+        public List<SocialCommentDto> RecentComments { get; set; } = [];
+    }
+}

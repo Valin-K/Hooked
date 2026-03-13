@@ -1,5 +1,6 @@
 using Hooked.Shared.Data;
 using Hooked.Shared.Services;
+using Hooked.Web.Api;
 using Hooked.Web.Components;
 using Hooked.Web.Services;
 
@@ -41,5 +42,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies(
         typeof(Hooked.Shared._Imports).Assembly);
+app.MapHookedApi();
 
 app.Run();

@@ -3,8 +3,10 @@
     left: 50%;
     transform: translateX(-50%);
     bottom: 1rem;
+    width: min(95vw, 30rem);
     display: flex;
     gap: 0.4rem;
+    justify-content: space-between;
     padding: 0.45rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -20,9 +22,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 3.4rem;
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 3.1rem;
-    padding: 0.45rem 0.8rem;
+    padding: 0.45rem 0.4rem;
     color: var(--text-soft);
     text-decoration: none;
     border-radius: 999px;
@@ -59,8 +62,12 @@
     }
 
     ::deep nav.bottom-nav .nav-item {
-        min-width: 3rem;
+        min-width: 0;
         min-height: 2.8rem;
-        padding: 0.35rem 0.5rem;
+        padding: 0.35rem 0.32rem;
+    }
+
+    ::deep nav.bottom-nav .nav-item .label {
+        font-size: 0.56rem;
     }
 }
