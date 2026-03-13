@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Hooked/Hooked.Shared/Hooked.Shared.csproj" />
+  <Project Path="Hooked/Hooked.Web/Hooked.Web.csproj" />
+  <Project Path="Hooked/Hooked/Hooked.csproj" />
+</Solution>
