@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Hooked</title>
     <base href="/" />
+    <script>
+        (function () {
+            try {
+                var key = "hooked-theme";
+                var saved = localStorage.getItem(key);
+                var resolved = (saved === "dark" || saved === "light")
+                    ? saved
+                    : ((window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light");
+                document.documentElement.setAttribute("data-theme", resolved);
+            } catch {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="_content/Hooked.Shared/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="_content/Hooked.Shared/app.css" />
     <link rel="stylesheet" href="_content/Hooked.Shared/mobile.css" />
@@ -18,6 +32,7 @@
 
     <div id="app">Loading...</div>
 
+    <script src="_content/Hooked.Shared/theme.js"></script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>
