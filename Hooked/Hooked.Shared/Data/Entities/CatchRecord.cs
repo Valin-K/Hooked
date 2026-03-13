@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Hooked.Shared.Data
 {
@@ -15,5 +16,7 @@ namespace Hooked.Shared.Data
 
         public User? User { get; set; }
         public FishSpecies? Species { get; set; }
+        public ICollection<CatchReaction> Reactions { get; set; } = new List<CatchReaction>();
+        public ICollection<CatchComment> Comments { get; set; } = new List<CatchComment>();
     }
 }

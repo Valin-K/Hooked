@@ -1,0 +1,219 @@
+.profile-shell {
+    padding-bottom: 8rem;
+}
+
+.profile-nav-header {
+    margin-bottom: 1rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.profile-summary {
+    border-radius: 24px;
+    padding: 1rem;
+}
+
+.summary-top {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.profile-avatar {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #03263d;
+    background: radial-gradient(circle at 35% 30%, rgba(194, 247, 255, 0.95), rgba(34, 211, 238, 0.8));
+}
+
+.identity h1 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.handle {
+    margin-top: 0.2rem;
+    color: var(--text-soft);
+    font-size: 0.82rem;
+}
+
+.joined {
+    margin-top: 0.2rem;
+    font-size: 0.76rem;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.profile-stats-grid {
+    margin-top: 1rem;
+}
+
+.follow-action {
+    margin-top: 1rem;
+}
+
+.profile-feed {
+    margin-top: 1rem;
+}
+
+.feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.feed-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.feed-link {
+    font-size: 0.84rem;
+}
+
+.catch-list {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.profile-catch-card {
+    border-radius: 20px;
+    padding: 0.95rem;
+}
+
+.catch-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    align-items: baseline;
+}
+
+.catch-user {
+    font-weight: 700;
+}
+
+.catch-time {
+    font-size: 0.74rem;
+}
+
+.catch-species {
+    margin-top: 0.6rem;
+    font-size: 1.02rem;
+    font-weight: 700;
+}
+
+.catch-meta {
+    margin-top: 0.35rem;
+    display: flex;
+    gap: 0.75rem;
+    color: var(--text-soft);
+    font-size: 0.82rem;
+}
+
+.catch-actions {
+    margin-top: 0.75rem;
+}
+
+.profile-action-button {
+    min-width: 7.6rem;
+}
+
+.comment-panel {
+    margin-top: 0.75rem;
+}
+
+.comment-count {
+    font-size: 0.78rem;
+}
+
+.empty-comments {
+    margin: 0.45rem 0;
+    font-size: 0.82rem;
+}
+
+.comment-list {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.comment-list li {
+    font-size: 0.82rem;
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.comment-user {
+    font-weight: 600;
+}
+
+.comment-text {
+    color: var(--text-soft);
+}
+
+.comment-composer {
+    margin-top: 0.6rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.comment-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-strong);
+    padding: 0.5rem 0.85rem;
+}
+
+.comment-input::placeholder {
+    color: rgba(222, 241, 255, 0.55);
+}
+
+.comment-submit {
+    min-width: 6.4rem;
+}
+
+.state-card {
+    border-radius: 20px;
+    padding: 1rem;
+}
+
+.state-card h1 {
+    margin-top: 0;
+    margin-bottom: 0.4rem;
+    font-size: 1.2rem;
+}
+
+.compact-state {
+    margin-top: 0.7rem;
+}
+
+@media (max-width: 560px) {
+    .summary-top {
+        align-items: flex-start;
+    }
+
+    .comment-composer {
+        flex-direction: column;
+    }
+
+    .comment-submit {
+        width: 100%;
+    }
+}

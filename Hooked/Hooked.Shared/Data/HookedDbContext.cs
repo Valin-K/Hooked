@@ -17,6 +17,8 @@ namespace Hooked.Shared.Data
 
         // Records of user catches
         public DbSet<CatchRecord> CatchRecords { get; set; } = null!;
+        public DbSet<CatchReaction> CatchReactions { get; set; } = null!;
+        public DbSet<CatchComment> CatchComments { get; set; } = null!;
 
         // Community sightings (not necessarily caught)
         public DbSet<Sighting> Sightings { get; set; } = null!;
@@ -64,6 +66,28 @@ namespace Hooked.Shared.Data
                 b.HasIndex(c => c.CaughtAt);
 
                 b.Property(c => c.PhotoPath).HasMaxLength(512);
+            });
+
+            modelBuilder.Entity<CatchReaction>(b =>
+            {
+                b.HasKey(r => new { r.CatchId, r.UserId });
+                b.HasOne(r => r.Catch).WithMany(c => c.Reactions).HasForeignKey(r => r.CatchId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(r => r.User).WithMany(u => u.CatchReactions).HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+
+                b.HasIndex(r => r.UserId);
+                b.HasIndex(r => r.ReactedAt);
+            });
+
+            modelBuilder.Entity<CatchComment>(b =>
+            {
+                b.HasKey(c => c.Id);
+                b.HasOne(c => c.Catch).WithMany(cr => cr.Comments).HasForeignKey(c => c.CatchId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(c => c.User).WithMany(u => u.CatchComments).HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(c => c.CommentText).HasMaxLength(500).IsRequired();
+                b.HasIndex(c => c.CatchId);
+                b.HasIndex(c => c.UserId);
+                b.HasIndex(c => c.CommentedAt);
             });
 
             modelBuilder.Entity<Sighting>(b =>

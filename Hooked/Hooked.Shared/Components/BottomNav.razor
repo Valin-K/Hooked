@@ -6,6 +6,10 @@
         <span class="nav-icon">⌂</span>
         <div class="label">Home</div>
     </a>
+    <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed">
+        <span class="nav-icon">◒</span>
+        <div class="label">Feed</div>
+    </a>
     <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish">
         <span class="nav-icon">◉</span>
         <div class="label">Scan</div>
@@ -41,7 +45,12 @@
             normalizedHref = "/";
         }
 
-        return currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase)
+        var isActive = normalizedHref == "/"
+            ? currentPath.Equals("/", StringComparison.OrdinalIgnoreCase)
+            : currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase) ||
+              currentPath.StartsWith($"{normalizedHref}/", StringComparison.OrdinalIgnoreCase);
+
+        return isActive
             ? "nav-item active"
             : "nav-item";
     }
