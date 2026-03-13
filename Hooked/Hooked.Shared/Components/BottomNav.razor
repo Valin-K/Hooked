@@ -1,0 +1,48 @@
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager NavigationManager
+
+<nav class="bottom-nav">
+    <a href="/" class="@GetNavItemClass("/")" title="Home">
+        <span class="nav-icon">⌂</span>
+        <div class="label">Home</div>
+    </a>
+    <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish">
+        <span class="nav-icon">◉</span>
+        <div class="label">Scan</div>
+    </a>
+    <a href="/map" class="@GetNavItemClass("/map")" title="Map">
+        <span class="nav-icon">⌖</span>
+        <div class="label">Map</div>
+    </a>
+    <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary">
+        <span class="nav-icon">◍</span>
+        <div class="label">FishDex</div>
+    </a>
+    <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile">
+        <span class="nav-icon">◌</span>
+        <div class="label">Profile</div>
+    </a>
+</nav>
+
+@code {
+    private string GetNavItemClass(string href)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var currentPath = $"/{relativePath.Split('?', '#')[0]}".TrimEnd('/');
+        var normalizedHref = href.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(currentPath))
+        {
+            currentPath = "/";
+        }
+
+        if (string.IsNullOrEmpty(normalizedHref))
+        {
+            normalizedHref = "/";
+        }
+
+        return currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase)
+            ? "nav-item active"
+            : "nav-item";
+    }
+}

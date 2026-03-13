@@ -1,14 +1,130 @@
 ﻿@page "/"
+@using Hooked.Shared.Data
 @using Hooked.Shared.Services
-@inject IFormFactor FormFactor
+@inject ICatchService CatchService
+@inject IFishService FishService
+@inject IUserService UserService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Hooked</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="mobile-shell">
+    <header class="app-header ocean-glass">
+        <div class="brand-lockup">
+            <span class="brand-mark">◌</span>
+            <div>
+                <div class="title">Hooked</div>
+                <div class="brand-subtitle">Ocean Intelligence</div>
+            </div>
+        </div>
+        <button class="ghost-icon" type="button" title="Open profile" @onclick="GoToProfile">☰</button>
+    </header>
 
-Welcome to your new app running on <em>@factor</em> using <em>@platform</em>.
+    <section class="hero ocean-glass">
+        <div class="badge-pill">AI-Powered Catch Hub</div>
+        <h1 class="welcome">Dive into your next trophy catch.</h1>
+        <div class="subtitle">Track catches, map hotspots, and identify species in a single fluid workspace.</div>
+        <div class="hero-actions">
+            <button class="action primary" @onclick="ScanFish">Open AI Scanner</button>
+            <button class="action secondary" @onclick="GoToFishDex">Browse FishDex</button>
+        </div>
+    </section>
+
+    <section class="stats-grid">
+        <article class="stat-card ocean-glass">
+            <div class="stat-label">Recent Catches</div>
+            <div class="stat-value">@recentCatchCount</div>
+        </article>
+        <article class="stat-card ocean-glass">
+            <div class="stat-label">Today's Catches</div>
+            <div class="stat-value">@todayCatchCount</div>
+        </article>
+        <article class="stat-card ocean-glass">
+            <div class="stat-label">Best Length</div>
+            <div class="stat-value">@longestCatchText</div>
+        </article>
+    </section>
+
+    <section class="quick-actions">
+        <button class="action" @onclick="GoToMap">Explore Map</button>
+        <button class="action" @onclick="GoToCounter">View Insights</button>
+        <button class="action" @onclick="GoToFishDex">Species Library</button>
+    </section>
+
+    <section class="ai-highlight ocean-glass">
+        <div>
+            <div class="ai-title">Tide AI Assistant</div>
+            <div class="ai-text">Use camera-first recognition with contextual species hints to reduce misidentifications in the field.</div>
+        </div>
+        <button class="action primary compact" @onclick="ScanFish">Launch</button>
+    </section>
+
+    <section class="recent">
+        <h3>Recent catches</h3>
+        @if (recentCatches is null)
+        {
+            <p class="muted">Loading…</p>
+        }
+        else if (!recentCatches.Any())
+        {
+            <p class="muted">No catches yet — start by scanning a fish.</p>
+        }
+        else
+        {
+            <div class="recent-list">
+                @foreach (var c in recentCatches)
+                {
+                    <article class="catch-card" @onclick="() => OpenCatch(c.Id)">
+                        <div class="catch-photo">@((c.PhotoPath is null) ? "◍" : "◉")</div>
+                        <div class="catch-meta">
+                            <div class="species">@c.Species?.CommonName ?? "Unknown"</div>
+                            <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("g")</div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <bottom-nav />
+</div>
 
 @code {
-    private string factor => FormFactor.GetFormFactor();
-    private string platform => FormFactor.GetPlatform();
+    private IEnumerable<Hooked.Shared.Data.CatchRecord>? recentCatches;
+    private int recentCatchCount;
+    private int todayCatchCount;
+    private string longestCatchText = "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        recentCatches = await CatchService.GetRecentCatchesAsync(20);
+
+        var catchList = recentCatches?.ToList() ?? [];
+        recentCatchCount = catchList.Count;
+        todayCatchCount = catchList.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
+
+        var longestCatch = catchList
+            .Where(c => c.LengthMeters.HasValue)
+            .Select(c => c.LengthMeters!.Value)
+            .DefaultIfEmpty()
+            .Max();
+
+        if (longestCatch > 0)
+        {
+            longestCatchText = $"{longestCatch:F2} m";
+        }
+    }
+
+    private void ScanFish()
+    {
+        NavigationManager.NavigateTo("/arscanner");
+    }
+
+    [Inject]
+    public NavigationManager NavigationManager { get; set; } = null!;
+
+    private void GoToProfile() => NavigationManager.NavigateTo("/profile");
+    private void GoToMap() => NavigationManager.NavigateTo("/map");
+    private void GoToCounter() => NavigationManager.NavigateTo("/counter");
+    private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
+    private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 }

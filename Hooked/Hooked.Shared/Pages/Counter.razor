@@ -1,18 +1,41 @@
 ﻿@page "/counter"
+@using Hooked.Shared.Services
+@inject ICatchService CatchService
 
-<PageTitle>Counter</PageTitle>
+<PageTitle>Activity</PageTitle>
 
-<h1>Counter</h1>
+<div class="card">
+    <div class="card-row">
+        <div>
+            <div class="title">Quick Stats</div>
+            <div class="muted">Overview of your recent activity</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+            <div style="font-weight:700;font-size:1.25rem">@totalCatches</div>
+            <div class="muted">Total catches</div>
+        </div>
+    </div>
 
-<p role="status">Current count: @currentCount</p>
+    <hr />
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+    <div class="card-row" style="margin-top:12px">
+        <div class="card" style="flex:1">
+            <div class="title">Biggest</div>
+            <div class="muted">Coming soon</div>
+        </div>
+        <div class="card" style="flex:1">
+            <div class="title">Rarest</div>
+            <div class="muted">Coming soon</div>
+        </div>
+    </div>
+</div>
 
-@code {
-    private int currentCount = 0;
+@code{
+    private int totalCatches = 0;
 
-    private void IncrementCount()
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        var items = await CatchService.GetRecentCatchesAsync(100);
+        totalCatches = items?.Count() ?? 0;
     }
 }
