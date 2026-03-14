@@ -1,38 +1,22 @@
-.map-page {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    padding-bottom: 7.5rem;
-}
-
-.map-header {
-    position: sticky;
-    top: 0.9rem;
-    z-index: 25;
-    border-radius: 20px;
-    margin: 0.9rem auto 1rem;
-    width: min(920px, 100% - 2rem);
-    padding: 0.9rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.map-shell {
+    padding-bottom: 8rem;
 }
 
 .map-wrap {
     position: relative;
-    width: min(920px, 100% - 2rem);
-    margin: 0 auto;
+    width: 100%;
     border-radius: 24px;
-    overflow: visible;      /* allow legend to sit outside the canvas corners */
+    overflow: visible;
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
     height: clamp(300px, 52vh, 520px);
+    margin-bottom: 0.85rem;
 }
 
 .map-canvas {
     width: 100%;
     height: 100%;
-    border-radius: 24px;    /* clip the mapbox canvas itself */
+    border-radius: 24px;
     overflow: hidden;
 }
 
@@ -72,7 +56,7 @@
     position: absolute;
     top: 0.75rem;
     left: 0.75rem;
-    z-index: 11;            /* above the legend */
+    z-index: 11;
     border-radius: 999px;
     padding: 0.3rem 0.75rem;
     font-size: 0.75rem;
@@ -83,8 +67,7 @@
 
 /* Catch list below map */
 .map-catch-list {
-    width: min(920px, 100% - 2rem);
-    margin: 0.85rem auto 0;
+    width: 100%;
 }
 
 .map-list-title {
@@ -154,8 +137,6 @@
 
 /* No-token placeholder */
 .map-no-token {
-    width: min(920px, 100% - 2rem);
-    margin: 1rem auto;
     border-radius: 24px;
     padding: 2rem 1.5rem;
     text-align: center;
