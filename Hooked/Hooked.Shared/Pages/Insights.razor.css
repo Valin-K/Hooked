@@ -690,18 +690,100 @@
     .ins-tips-grid {
         grid-template-columns: 1fr;
     }
+
+    .ins-tip-card--full {
+        grid-column: 1;
+    }
+
+    .ins-hero {
+        padding: 0.9rem 0.85rem 0.85rem;
+    }
+
+    .ins-assistant {
+        padding: 0.85rem;
+    }
+
+    .ins-chat-bubble {
+        max-width: 90%;
+    }
+
+    .ins-search-input {
+        font-size: 0.8rem;
+    }
+
+    .ins-spot-card {
+        padding: 0.7rem 0.8rem;
+    }
 }
 
-@media (max-width: 390px) {
+@media (max-width: 420px) {
     .ins-weather-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .ins-ws-value {
-        font-size: 0.72rem;
+        font-size: 0.74rem;
+    }
+
+    .ins-ws-label {
+        font-size: 0.58rem;
+    }
+
+    .ins-quality-reason {
+        font-size: 0.76rem;
     }
 
     .ins-chat-bubble {
         max-width: 94%;
+        font-size: 0.79rem;
+    }
+
+    .ins-chat-input {
+        font-size: 0.8rem;
+    }
+
+    .ins-search-row {
+        gap: 0.35rem;
+    }
+
+    .ins-gps-btn {
+        width: 2.2rem;
+        height: 2.2rem;
+    }
+
+    .ins-chat-send {
+        width: 2.2rem;
+        height: 2.2rem;
+    }
+
+    .ins-hero-top {
+        flex-wrap: wrap;
+    }
+
+    .ins-weather-icon-wrap svg {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+@media (max-width: 360px) {
+    .ins-weather-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ins-ws-value {
+        font-size: 0.68rem;
+    }
+
+    .ins-tip-label {
+        font-size: 0.7rem;
+    }
+
+    .ins-tip-body {
+        font-size: 0.74rem;
+    }
+
+    .ins-card {
+        padding: 0.75rem 0.85rem;
     }
 }
