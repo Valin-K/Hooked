@@ -43,6 +43,10 @@ window.hookedMap = (() => {
         </svg>`;
     }
 
+    // Inline SVG icons — font-independent, match the toolbar's sun/moon intent
+    const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+    const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
     // ?? Style toggle as a proper Mapbox IControl ?????????????????????????????
     function makeStyleToggleControl(map) {
         const STYLES = {
@@ -57,14 +61,11 @@ window.hookedMap = (() => {
         const btn = document.createElement('button');
         btn.className = 'hk-style-btn';
         btn.type      = 'button';
-        btn.title     = 'Toggle map style';
 
         function updateLabel() {
             const isDark = currentKey === 'dark';
-            // Lucide icon names: moon (dark mode), map (terrain mode)
-            btn.innerHTML = isDark
-                ? `<i class="lucide-map" aria-hidden="true"></i><span>Terrain</span>`
-                : `<i class="lucide-moon" aria-hidden="true"></i><span>Dark</span>`;
+            btn.innerHTML = isDark ? ICON_SUN : ICON_MOON;
+            btn.title = isDark ? 'Switch to terrain style' : 'Switch to dark style';
         }
         updateLabel();
 

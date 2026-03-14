@@ -1,10 +1,10 @@
-﻿@page "/counter"
+@page "/insights"
 @using Hooked.Shared.Services
 @using Microsoft.JSInterop
 @inject IInsightsService InsightsService
 @inject IJSRuntime JS
 
-<PageTitle>Insights · Hooked</PageTitle>
+<PageTitle>Insights � Hooked</PageTitle>
 
 <div class="mobile-shell insights-shell">
     <TopNavBar Subtitle="Fishing Insights" />
@@ -17,7 +17,7 @@
             </span>
             <input class="ins-search-input"
                    type="text"
-                   placeholder="Search a location…"
+                   placeholder="Search a location�"
                    @bind="_searchQuery"
                    @bind:event="oninput"
                    @onkeydown="OnSearchKeyDown"
@@ -51,7 +51,7 @@
     {
         <div class="ins-state ocean-glass">
             <div class="ins-spinner"></div>
-            <span>Getting your location…</span>
+            <span>Getting your location�</span>
         </div>
     }
     else if (_locState == LocState.Denied)
@@ -70,7 +70,7 @@
     {
         <div class="ins-state ocean-glass">
             <div class="ins-spinner"></div>
-            <span>Loading conditions…</span>
+            <span>Loading conditions�</span>
         </div>
     }
     else if (_conditions is not null)
@@ -104,7 +104,7 @@
                     <div class="ins-ws-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
                     </div>
-                    <div class="ins-ws-value">@_conditions.TemperatureC.ToString("F1")°C</div>
+                    <div class="ins-ws-value">@_conditions.TemperatureC.ToString("F1")�C</div>
                     <div class="ins-ws-label">Temp</div>
                 </div>
                 <div class="ins-weather-stat">
@@ -135,7 +135,7 @@
                     <div class="ins-ws-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
                     </div>
-                    <div class="ins-ws-value">@_conditions.FeelsLikeC.ToString("F1")°C</div>
+                    <div class="ins-ws-value">@_conditions.FeelsLikeC.ToString("F1")�C</div>
                     <div class="ins-ws-label">Feels like</div>
                 </div>
             </div>
@@ -407,7 +407,6 @@
             _locState = LocState.Ready;
             StateHasChanged();
 
-            // Load regulations and spots in parallel after conditions are shown
             _regulationsLoading = true;
             _spotsLoading = true;
             StateHasChanged();
@@ -454,7 +453,7 @@
             await SendChatAsync();
     }
 
-    // ── SVG icon helpers ────────────────────────────────────────────
+    // ?? SVG icon helpers ????????????????????????????????????????????
 
     private static string GetWeatherSvg(int code)
     {
@@ -481,14 +480,14 @@
 
     private static string GetMoonSvg(string phase) => phase switch
     {
-        "new"            => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>""",
-        "full"           => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>""",
-        "first-quarter"  => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor"/><circle cx="12" cy="12" r="10"/></svg>""",
-        "last-quarter"   => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 0 0 20V2z" fill="currentColor"/><circle cx="12" cy="12" r="10"/></svg>""",
-        _                => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>"""
+        "new"           => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>""",
+        "full"          => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>""",
+        "first-quarter" => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor"/><circle cx="12" cy="12" r="10"/></svg>""",
+        "last-quarter"  => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 0 0 20V2z" fill="currentColor"/><circle cx="12" cy="12" r="10"/></svg>""",
+        _               => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>"""
     };
 
-    // ── Markdown renderer ───────────────────────────────────────────
+    // ?? Markdown renderer ???????????????????????????????????????????
 
     private static string RenderMarkdown(string md)
     {
