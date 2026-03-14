@@ -17,13 +17,13 @@ namespace Hooked.Shared.Services.Search
         private const string IndexName = "hooked-catches";
 
         private readonly ElasticsearchClient _client;
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
         private readonly ILogger<ElasticSearchService> _logger;
 
-        public ElasticSearchService(ElasticsearchClient client, HookedDbContext db, ILogger<ElasticSearchService> logger)
+        public ElasticSearchService(ElasticsearchClient client, IDbContextFactory<HookedDbContext> dbFactory, ILogger<ElasticSearchService> logger)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -133,11 +133,12 @@ namespace Hooked.Shared.Services.Search
             var speciesIds = catchList.Select(c => c.SpeciesId).Distinct().ToList();
             var userIds = catchList.Select(c => c.UserId).Distinct().ToList();
 
-            var species = await _db.FishSpecies.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            var species = await db.FishSpecies.AsNoTracking()
                 .Where(s => speciesIds.Contains(s.Id))
                 .ToDictionaryAsync(s => s.Id, cancellationToken).ConfigureAwait(false);
 
-            var users = await _db.Users.AsNoTracking()
+            var users = await db.Users.AsNoTracking()
                 .Where(u => userIds.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id, cancellationToken).ConfigureAwait(false);
 

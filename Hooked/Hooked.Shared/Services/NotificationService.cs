@@ -10,11 +10,11 @@ namespace Hooked.Shared.Services
 {
     public sealed class NotificationService : INotificationService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
 
-        public NotificationService(HookedDbContext db)
+        public NotificationService(IDbContextFactory<HookedDbContext> dbFactory)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         }
 
         public async Task<IReadOnlyList<NotificationDto>> GetNotificationsAsync(
@@ -27,7 +27,8 @@ namespace Hooked.Shared.Services
                 return [];
             }
 
-            return await _db.Notifications
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.Notifications
                 .AsNoTracking()
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
@@ -57,7 +58,8 @@ namespace Hooked.Shared.Services
                 return 0;
             }
 
-            return await _db.Notifications
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.Notifications
                 .CountAsync(n => n.UserId == userId && !n.IsRead, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -67,14 +69,15 @@ namespace Hooked.Shared.Services
             Guid userId,
             CancellationToken cancellationToken = default)
         {
-            var notification = await _db.Notifications
+            await using var db = _dbFactory.CreateDbContext();
+            var notification = await db.Notifications
                 .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId, cancellationToken)
                 .ConfigureAwait(false);
 
             if (notification is { IsRead: false })
             {
                 notification.IsRead = true;
-                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -87,7 +90,8 @@ namespace Hooked.Shared.Services
                 return;
             }
 
-            var unread = await _db.Notifications
+            await using var db = _dbFactory.CreateDbContext();
+            var unread = await db.Notifications
                 .Where(n => n.UserId == userId && !n.IsRead)
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -102,7 +106,7 @@ namespace Hooked.Shared.Services
                 n.IsRead = true;
             }
 
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }
