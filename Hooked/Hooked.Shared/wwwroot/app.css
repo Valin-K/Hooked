@@ -214,37 +214,34 @@ h1:focus {
 
 /* ?? Style toggle — rendered via Mapbox IControl in top-right slot ?? */
 .hk-style-ctrl {
-    border-radius: 8px !important;
+    border-radius: 999px !important;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
 }
 
 .hk-style-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: rgba(5, 12, 28, 0.92);
+    display: grid;
+    place-items: center;
+    width: 29px;
+    height: 29px;
+    background: #fff;
     border: none;
-    color: #e2f0fb;
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    padding: 0.4rem 0.65rem;
-    cursor: pointer;
-    white-space: nowrap;
-    width: 100%;
-    transition: background 0.15s ease;
+    border-radius: 999px;
+    color: #333;
+    font-size: 1rem;
     line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease;
 }
 
-.hk-style-btn i {
-    font-size: 0.9rem;
-    line-height: 1;
+.hk-style-btn svg {
+    display: block;
     flex-shrink: 0;
 }
 
 .hk-style-btn:hover {
-    background: rgba(14, 32, 70, 0.98);
+    background: #f2f2f2;
 }
 
 /* ?? Species legend — lives in .map-wrap (outside overflow:hidden canvas) ?? */
