@@ -32,6 +32,11 @@ namespace Hooked.Shared.Data
         // Per-user collection entries (FishDex)
         public DbSet<FishDexEntry> FishDexEntries { get; set; } = null!;
 
+        // Fishing Sessions and Posts
+        public DbSet<FishingSession> FishingSessions { get; set; } = null!;
+        public DbSet<Post> Posts { get; set; } = null!;
+        public DbSet<PostPhoto> PostPhotos { get; set; } = null!;
+
         // Cached leaderboard entries (optional)
         public DbSet<LeaderboardEntry> LeaderboardEntries { get; set; } = null!;
 
@@ -65,6 +70,7 @@ namespace Hooked.Shared.Data
                 b.HasKey(c => c.Id);
                 b.HasOne(c => c.User).WithMany(u => u.Catches).HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
                 b.HasOne(c => c.Species).WithMany(s => s.Catches).HasForeignKey(c => c.SpeciesId).OnDelete(DeleteBehavior.Restrict);
+                b.HasOne(c => c.FishingSession).WithMany(s => s.Catches).HasForeignKey(c => c.FishingSessionId).OnDelete(DeleteBehavior.SetNull);
 
                 b.HasIndex(c => c.UserId);
                 b.HasIndex(c => c.SpeciesId);
@@ -127,6 +133,33 @@ namespace Hooked.Shared.Data
                 b.HasOne(fd => fd.Species).WithMany(s => s.FishDexEntries).HasForeignKey(fd => fd.SpeciesId).OnDelete(DeleteBehavior.Cascade);
                 b.HasOne(fd => fd.PersonalBestCatch).WithMany().HasForeignKey(fd => fd.PersonalBestCatchId).OnDelete(DeleteBehavior.SetNull);
                 b.HasIndex(fd => fd.UnlockedAt);
+            });
+
+            modelBuilder.Entity<FishingSession>(b =>
+            {
+                b.HasKey(s => s.Id);
+                b.HasOne(s => s.User).WithMany(u => u.FishingSessions).HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(s => s.UserId);
+                b.HasIndex(s => s.StartTime);
+            });
+
+            modelBuilder.Entity<Post>(b =>
+            {
+                b.HasKey(p => p.Id);
+                b.HasOne(p => p.User).WithMany(u => u.Posts).HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(p => p.FishingSession).WithMany().HasForeignKey(p => p.FishingSessionId).OnDelete(DeleteBehavior.Restrict);
+
+                b.Property(p => p.Title).HasMaxLength(200);
+                b.Property(p => p.LocationName).HasMaxLength(200);
+                b.HasIndex(p => p.UserId);
+                b.HasIndex(p => p.CreatedAt);
+            });
+
+            modelBuilder.Entity<PostPhoto>(b =>
+            {
+                b.HasKey(p => p.Id);
+                b.HasOne(p => p.Post).WithMany(post => post.Photos).HasForeignKey(p => p.PostId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.PhotoPath).HasMaxLength(512).IsRequired();
             });
 
             modelBuilder.Entity<LeaderboardEntry>(b =>
