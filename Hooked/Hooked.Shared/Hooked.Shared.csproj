@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.3.2" />
     <PackageReference Include="Google.GenAI" Version="1.4.0" />
     <PackageReference Include="LeonardoAI" Version="1.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />

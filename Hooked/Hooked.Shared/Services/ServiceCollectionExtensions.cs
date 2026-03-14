@@ -1,5 +1,8 @@
 using System;
 using Hooked.Shared.Services.AI;
+using Hooked.Shared.Services.Search;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Transport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -35,6 +38,21 @@ namespace Hooked.Shared.Services
                     configuration["LeonardoAI:ApiKey"],
                     configuration["ReferenceImageId"],
                     sp.GetRequiredService<IGeminiFishSpeciesService>()));
+
+            // Elasticsearch — optional: skipped when URL or API key is not configured
+            var elasticUrl = configuration["Elasticsearch:Url"];
+            var elasticApiKey = configuration["Elasticsearch:ApiKey"];
+            if (!string.IsNullOrWhiteSpace(elasticUrl) && !string.IsNullOrWhiteSpace(elasticApiKey))
+            {
+                services.AddSingleton<ElasticsearchClient>(_ =>
+                {
+                    var settings = new ElasticsearchClientSettings(new Uri(elasticUrl))
+                        .Authentication(new ApiKey(elasticApiKey));
+                    return new ElasticsearchClient(settings);
+                });
+
+                services.AddScoped<IElasticSearchService, ElasticSearchService>();
+            }
 
             return services;
         }
