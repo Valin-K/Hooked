@@ -8,25 +8,8 @@
 
 <PageTitle>Explore Map · Hooked</PageTitle>
 
-<div class="map-page">
-    <header class="map-header ocean-glass">
-        <div class="brand-lockup">
-            <span class="brand-mark" aria-hidden="true">
-                <AppIcon Name="map-pin" Size="16" />
-            </span>
-            <div>
-                <div class="title">Explore Map</div>
-                <div class="brand-subtitle">Catch Hotspots</div>
-            </div>
-        </div>
-        <button class="ghost-icon map-back-button"
-                type="button"
-                aria-label="Back to home"
-                title="Back to home"
-                @onclick="@(() => NavigationManager.NavigateTo("/"))">
-            <AppIcon Name="arrow-left" Size="18" />
-        </button>
-    </header>
+<div class="mobile-shell map-shell">
+    <TopNavBar Subtitle="Catch Hotspots" />
 
     @if (!string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) &&
          !MapService.MapboxAccessToken.StartsWith("YOUR_"))

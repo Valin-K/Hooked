@@ -1,0 +1,313 @@
+.fishdex-shell {
+    padding-bottom: 8rem;
+}
+
+.fishdex-header-card {
+    border-radius: 24px;
+    padding: 1.1rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.fishdex-header-card h1 {
+    margin: 0.65rem 0 0.35rem;
+}
+
+.fishdex-summary-pill {
+    margin-top: 1rem;
+    padding: 0.85rem 1.5rem;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.summary-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.summary-icon {
+    width: 26px;
+    height: 26px;
+    color: var(--accent);
+}
+
+.summary-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.summary-text .val {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.summary-text .lbl {
+    font-size: 0.65rem;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.15rem;
+}
+
+.summary-divider {
+    width: 1px;
+    height: 35px;
+    background: var(--glass-border);
+}
+
+.fishdex-state {
+    margin-top: 1rem;
+    border-radius: 18px;
+    padding: 1rem;
+}
+
+.fishdex-grid {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.fish-card {
+    border-radius: 16px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.fish-card:active {
+    transform: scale(0.95);
+}
+
+.fish-catch-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 2;
+}
+
+.fish-image-shell {
+    width: 85px;
+    height: 85px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+    display: grid;
+    place-items: center;
+    margin: 0.2rem auto 0.6rem;
+    position: relative;
+}
+
+.fish-image {
+    width: 95%;
+    height: 95%;
+    object-fit: contain;
+}
+
+.fish-image-fallback {
+    font-size: 1.8rem;
+    color: var(--text-soft);
+}
+
+.locked .fish-image,
+.locked .fish-image-fallback {
+    filter: grayscale(1) brightness(0.2) contrast(1.1);
+}
+
+.fish-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.fish-name {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.fish-pb {
+    font-size: 0.65rem;
+    color: var(--text-soft);
+    margin-top: 0.2rem;
+    white-space: nowrap;
+}
+
+.fishdex-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.fishdex-modal-content {
+    border-radius: 24px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1.2rem;
+    background: transparent;
+    border: none;
+    color: var(--text-soft);
+    font-size: 1.8rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.modal-header {
+    padding: 1.5rem 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.modal-image-shell {
+    width: 160px;
+    height: 160px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.modal-image {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    text-align: center;
+}
+
+.modal-scientific {
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    margin-top: 0.2rem;
+    font-style: italic;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-stats {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.stat-box {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 110px;
+}
+
+.stat-title {
+    font-size: 0.7rem;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+}
+
+.stat-val {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.history-title {
+    font-size: 1rem;
+    margin: 0 0 0.8rem;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 0.4rem;
+}
+
+.catch-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.catch-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.catch-weight {
+    font-weight: 500;
+}
+
+.center {
+    text-align: center;
+}
+
+@media (max-width: 820px) {
+    .fishdex-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .fishdex-header-card {
+        flex-direction: column;
+    }
+}
