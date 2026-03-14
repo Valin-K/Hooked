@@ -15,6 +15,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 builder.Services.AddSingleton<IPhotoCaptureService, PhotoCaptureService>();
 builder.Services.AddScoped<ILocationService, WebLocationService>();
+builder.Services.AddSingleton<IPreferencesService, WebPreferencesService>();
 
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "hooked.db");
 Directory.CreateDirectory(Path.GetDirectoryName(databasePath) ?? builder.Environment.ContentRootPath);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -265,7 +266,8 @@ namespace Hooked.Shared.Services.AI
 
             // Get image dimensions
             int imageWidth, imageHeight;
-            using (var image = Image.Load(imageBytes))
+            using (var memoryStream = new MemoryStream(imageBytes))
+            using (var image = SixLabors.ImageSharp.Image.Load(memoryStream))
             {
                 imageWidth = image.Width;
                 imageHeight = image.Height;

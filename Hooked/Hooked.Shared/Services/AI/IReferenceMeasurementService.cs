@@ -17,5 +17,11 @@ namespace Hooked.Shared.Services.AI
         /// Estimates fish length based on manual calibration (user provides pixels-per-meter ratio).
         /// </summary>
         double CalculateFishLengthFromManualCalibration(FishBoundingBoxDto boundingBox, double pixelsPerMeter);
+
+        /// <summary>
+        /// Calculates fish length using camera focal length and assumed distance.
+        /// Uses triangle similarity: distance = (real_width * focal_length) / pixel_width
+        /// </summary>
+        Task<double> CalculateFishLengthFromCameraAsync(FishBoundingBoxDto boundingBox, double assumedDistanceMeters);
     }
 }

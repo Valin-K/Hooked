@@ -25,6 +25,7 @@ namespace Hooked
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
             builder.Services.AddSingleton<IPhotoCaptureService, PhotoCaptureService>();
             builder.Services.AddSingleton<ILocationService, MauiLocationService>();
+            builder.Services.AddSingleton<IPreferencesService, MauiPreferencesService>();
 
             var databasePath = Path.Combine(FileSystem.AppDataDirectory, "hooked.db");
             builder.Services.AddHookedDatabase(databasePath);

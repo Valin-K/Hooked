@@ -34,6 +34,7 @@ namespace Hooked.Shared.Services
                     configuration["ReferenceImageId"],
                     sp.GetRequiredService<IGeminiFishSpeciesService>()));
 
+            services.AddSingleton<ICameraCalibrationService, CameraCalibrationService>();
             services.AddSingleton<IReferenceMeasurementService, ReferenceMeasurementService>();
 
             return services;

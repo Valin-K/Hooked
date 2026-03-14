@@ -150,3 +150,52 @@
     color: var(--text-soft);
     font-family: 'Courier New', monospace;
 }
+
+.scanner-warning {
+    color: #ffb366 !important;
+    font-weight: 600;
+}
+
+.scanner-calibration-prompt {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: linear-gradient(140deg, rgba(255, 179, 102, 0.1), rgba(255, 143, 143, 0.08));
+    border: 1px solid rgba(255, 179, 102, 0.3);
+}
+
+.scanner-calibration-prompt h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: var(--text-strong);
+}
+
+.scanner-calibration-prompt p {
+    margin: 0.35rem 0 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-soft);
+}
+
+.scanner-calibration-steps {
+    margin: 0.6rem 0;
+    padding-left: 1.2rem;
+    font-size: 0.82rem;
+    color: var(--text-soft);
+    line-height: 1.5;
+}
+
+.scanner-calibration-steps li {
+    margin-bottom: 0.35rem;
+}
+
+.scanner-calibration-warning {
+    margin: 0.6rem 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(255, 179, 102, 0.15);
+    border: 1px solid rgba(255, 179, 102, 0.4);
+    color: #ffb366;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+}
