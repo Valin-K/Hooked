@@ -28,6 +28,7 @@ namespace Hooked.Shared.Services
             services.Configure<ProgressionOptions>(configuration.GetSection(ProgressionOptions.SectionName));
             services.AddScoped<IXpNotificationService, XpNotificationService>();
             services.AddScoped<IProgressionService, ProgressionService>();
+            services.AddScoped<INotificationService, NotificationService>();
 
             services.AddSingleton<InsightsCacheService>();
 

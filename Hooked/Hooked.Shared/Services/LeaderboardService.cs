@@ -11,11 +11,11 @@ namespace Hooked.Shared.Services
     public sealed class LeaderboardService : ILeaderboardService
     {
         private const int WeeklyXpWindowDays = 7;
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
 
-        public LeaderboardService(HookedDbContext db)
+        public LeaderboardService(IDbContextFactory<HookedDbContext> dbFactory)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         }
 
         public async Task<IReadOnlyList<LeaderboardRowDto>> GetLeaderboardAsync(
@@ -25,11 +25,13 @@ namespace Hooked.Shared.Services
             int limit = 50,
             CancellationToken cancellationToken = default)
         {
+            await using var db = _dbFactory.CreateDbContext();
             var normalizedLimit = Math.Clamp(limit, 1, 200);
+
             List<Guid>? scopedUserIds = null;
             if (scope == LeaderboardScope.Friends && currentUserId != Guid.Empty)
             {
-                scopedUserIds = await _db.FriendRelations.AsNoTracking()
+                scopedUserIds = await db.FriendRelations.AsNoTracking()
                     .Where(f => f.UserId == currentUserId)
                     .Select(f => f.FriendId)
                     .ToListAsync(cancellationToken)
@@ -38,10 +40,9 @@ namespace Hooked.Shared.Services
             }
 
             List<LeaderboardRowDto> rows;
-
             if (metric == LeaderboardMetric.MostCaught)
             {
-                IQueryable<CatchRecord> query = _db.CatchRecords.AsNoTracking();
+                IQueryable<CatchRecord> query = db.CatchRecords.AsNoTracking();
                 if (scopedUserIds is not null)
                 {
                     query = query.Where(c => scopedUserIds.Contains(c.UserId));
@@ -73,7 +74,7 @@ namespace Hooked.Shared.Services
             }
             else if (metric == LeaderboardMetric.LargestFish)
             {
-                IQueryable<CatchRecord> query = _db.CatchRecords.AsNoTracking();
+                IQueryable<CatchRecord> query = db.CatchRecords.AsNoTracking();
                 if (scopedUserIds is not null)
                 {
                     query = query.Where(c => scopedUserIds.Contains(c.UserId));
@@ -106,7 +107,7 @@ namespace Hooked.Shared.Services
             }
             else
             {
-                IQueryable<UserSkill> query = _db.UserSkills.AsNoTracking();
+                IQueryable<UserSkill> query = db.UserSkills.AsNoTracking();
                 if (scopedUserIds is not null)
                 {
                     query = query.Where(us => scopedUserIds.Contains(us.UserId));
@@ -148,8 +149,9 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("User ID is required.", nameof(userId));
             }
 
+            await using var db = _dbFactory.CreateDbContext();
             var windowStartUtc = DateTime.UtcNow.AddDays(-WeeklyXpWindowDays);
-            return await _db.XpEvents
+            return await db.XpEvents
                 .AsNoTracking()
                 .Where(xpEvent => xpEvent.UserId == userId && xpEvent.CreatedAt >= windowStartUtc)
                 .Select(xpEvent => (int?)xpEvent.XpDelta)

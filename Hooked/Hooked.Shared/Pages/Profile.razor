@@ -350,8 +350,9 @@
                                     <input class="comment-input"
                                            maxlength="500"
                                            placeholder="Add a comment…"
-                                           value="@GetCommentDraft(catchItem.CatchId)"
-                                           @oninput="e => UpdateCommentDraft(catchItem.CatchId, e.Value?.ToString())" />
+                                           @bind:get="GetCommentDraft(catchItem.CatchId)"
+                                           @bind:set="v => UpdateCommentDraft(catchItem.CatchId, v)"
+                                           @bind:event="oninput" />
                                     <button class="action secondary comment-submit"
                                             type="button"
                                             disabled="@(!CanSubmitComment(catchItem.CatchId))"

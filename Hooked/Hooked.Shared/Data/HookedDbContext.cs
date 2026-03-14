@@ -50,6 +50,9 @@ namespace Hooked.Shared.Data
         // Cached leaderboard entries (optional)
         public DbSet<LeaderboardEntry> LeaderboardEntries { get; set; } = null!;
 
+        // In-app notifications
+        public DbSet<Notification> Notifications { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -284,6 +287,22 @@ namespace Hooked.Shared.Data
                 b.HasKey(l => l.Id);
                 b.HasIndex(l => new { l.Category, l.Score });
                 b.HasOne(l => l.User).WithMany().HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Notification>(b =>
+            {
+                b.HasKey(n => n.Id);
+                b.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(n => n.Catch).WithMany().HasForeignKey(n => n.CatchId).OnDelete(DeleteBehavior.SetNull);
+                b.HasOne(n => n.TriggeredByUser).WithMany().HasForeignKey(n => n.TriggeredByUserId).OnDelete(DeleteBehavior.SetNull);
+                b.HasOne(n => n.Achievement).WithMany().HasForeignKey(n => n.AchievementId).OnDelete(DeleteBehavior.SetNull);
+
+                b.Property(n => n.Type).HasMaxLength(50).IsRequired();
+                b.Property(n => n.Title).HasMaxLength(300).IsRequired();
+                b.Property(n => n.Body).HasMaxLength(500);
+
+                b.HasIndex(n => new { n.UserId, n.IsRead });
+                b.HasIndex(n => new { n.UserId, n.CreatedAt });
             });
 
             // Seed minimal species entries could be added later via initializer
