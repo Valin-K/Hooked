@@ -417,18 +417,6 @@
         throw new InvalidOperationException("Fish length must be a positive number in meters.");
     }
 
-    private void ClearPhoto()
-    {
-        _photoBytes = null;
-        _photoMimeType = null;
-        _photoPreviewUrl = null;
-        _canScan = false;
-        _errorMessage = null;
-        _statusMessage = null;
-        _speciesName = null;
-        _generatedFishImageUrl = null;
-    }
-
     private void GoToFishDex()
     {
         NavigationManager.NavigateTo("/fishdex");
