@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hooked.Shared.Data
@@ -6,7 +7,7 @@ namespace Hooked.Shared.Data
     public static class HookedDatabaseServiceCollectionExtensions
     {
         /// <summary>
-        /// Registers the shared SQLite database services.
+        /// Registers database services (SQLite or PostgreSQL via Supabase based on configuration).
         /// </summary>
         public static IServiceCollection AddHookedDatabase(this IServiceCollection services, string databasePath)
         {
@@ -17,19 +18,34 @@ namespace Hooked.Shared.Data
                 throw new ArgumentException("Database path cannot be null, empty, or whitespace.", nameof(databasePath));
             }
 
-            services.AddSingleton(new HookedDatabaseOptions(databasePath));
             services.AddDbContext<HookedDbContext>((serviceProvider, options) =>
             {
-                var dbOptions = serviceProvider.GetRequiredService<HookedDatabaseOptions>();
-                options.UseSqlite($"Data Source={dbOptions.DatabasePath}");
+                var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+                var useSupabase = configuration.GetValue<bool>("DatabaseConfiguration:UseSupabase");
+                var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+                if (useSupabase)
+                {
+                    if (string.IsNullOrWhiteSpace(connectionString))
+                    {
+                        throw new InvalidOperationException("ConnectionStrings:DefaultConnection must be configured when UseSupabase is true.");
+                    }
+
+                    options.UseNpgsql(connectionString);
+                }
+                else
+                {
+                    options.UseSqlite($"Data Source={databasePath}");
+                }
             });
+
             services.AddScoped<IHookedDatabaseInitializer, HookedDatabaseInitializer>();
 
             return services;
         }
 
         /// <summary>
-        /// Recreates the shared SQLite database for the current app run.
+        /// Initializes the database (creates schema and seeds data).
         /// </summary>
         public static async Task InitializeHookedDatabaseAsync(this IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {

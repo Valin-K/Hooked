@@ -17,6 +17,7 @@ Use AR + AI to help anglers:
 
 - **Social fishing feed** (posts, reactions, comments, profiles)
 - **Catch tracking** (species, size, weight, time, location)
+- **Insights** (weather data, tide information, info on regulation, good fishing spots, AI assistant)
 - **Map + hotspots** for exploring where fish are being caught
 - **Leaderboards & competition** for seasonal bragging rights
 - **FishDex** progression and collection-style discovery

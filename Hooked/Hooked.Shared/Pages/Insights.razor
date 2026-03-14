@@ -2,6 +2,7 @@
 @using Hooked.Shared.Services
 @inject IInsightsService InsightsService
 @inject ILocationService LocationService
+@inject InsightsCacheService Cache
 
 <PageTitle>Insights · Hooked</PageTitle>
 
@@ -320,6 +321,27 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+
+        _chatHistory = Cache.ChatHistory;
+
+        if (Cache.Lat.HasValue && Cache.Lng.HasValue && Cache.HasConditions(Cache.Lat.Value, Cache.Lng.Value))
+        {
+            _lat = Cache.Lat;
+            _lng = Cache.Lng;
+            _conditions = Cache.Conditions;
+            _regulations = Cache.Regulations;
+            _spots = Cache.Spots;
+            _regulationsLoading = _regulations is null;
+            _spotsLoading = _spots is null;
+            _locState = LocState.Ready;
+            StateHasChanged();
+
+            if (_regulations is null || _spots is null)
+                await LoadSecondaryDataAsync(_lat!.Value, _lng!.Value, loadRegulations: _regulations is null, loadSpots: _spots is null);
+
+            return;
+        }
+
         await RequestLocationAsync();
     }
 
@@ -390,7 +412,10 @@
     private async Task RefreshAsync()
     {
         if (_lat.HasValue && _lng.HasValue)
+        {
+            Cache.Invalidate();
             await LoadConditionsAsync();
+        }
     }
 
     private async Task LoadConditionsAsync()
@@ -402,28 +427,93 @@
 
         try
         {
-            _conditions = await InsightsService.GetConditionsAsync(_lat!.Value, _lng!.Value);
-            _locState = LocState.Ready;
-            StateHasChanged();
+            var lat = _lat!.Value;
+            var lng = _lng!.Value;
 
+            var conditionsTask = InsightsService.GetConditionsAsync(lat, lng);
+            var regTask = InsightsService.GetLocalRegulationsAsync(lat, lng);
+            var spotsTask = InsightsService.GetNearbyFishingSpotsAsync(lat, lng);
+
+            _conditions = await conditionsTask;
+            _locState = LocState.Ready;
             _regulationsLoading = true;
             _spotsLoading = true;
+            Cache.SetConditions(lat, lng, _conditions);
             StateHasChanged();
 
-            var regTask = InsightsService.GetLocalRegulationsAsync(_lat!.Value, _lng!.Value);
-            var spotsTask = InsightsService.GetNearbyFishingSpotsAsync(_lat!.Value, _lng!.Value);
+            var pending = new List<Task> { regTask, spotsTask };
+            while (pending.Count > 0)
+            {
+                var finished = await Task.WhenAny(pending);
+                pending.Remove(finished);
 
-            _regulations = await regTask;
-            _regulationsLoading = false;
-            StateHasChanged();
-
-            _spots = await spotsTask;
-            _spotsLoading = false;
-            StateHasChanged();
+                if (finished == regTask)
+                {
+                    _regulations = await regTask;
+                    _regulationsLoading = false;
+                    Cache.SetRegulations(lat, lng, _regulations);
+                    StateHasChanged();
+                }
+                else if (finished == spotsTask)
+                {
+                    _spots = await spotsTask;
+                    _spotsLoading = false;
+                    Cache.SetSpots(lat, lng, _spots);
+                    StateHasChanged();
+                }
+            }
         }
         catch
         {
             _locState = LocState.Denied;
+            _regulationsLoading = false;
+            _spotsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSecondaryDataAsync(double lat, double lng, bool loadRegulations, bool loadSpots)
+    {
+        try
+        {
+            var tasks = new List<Task>();
+            Task<string>? regTask = null;
+            Task<IReadOnlyList<FishingSpotDto>>? spotsTask = null;
+
+            if (loadRegulations)
+            {
+                regTask = InsightsService.GetLocalRegulationsAsync(lat, lng);
+                tasks.Add(regTask);
+            }
+            if (loadSpots)
+            {
+                spotsTask = InsightsService.GetNearbyFishingSpotsAsync(lat, lng);
+                tasks.Add(spotsTask);
+            }
+
+            while (tasks.Count > 0)
+            {
+                var finished = await Task.WhenAny(tasks);
+                tasks.Remove(finished);
+
+                if (finished == regTask)
+                {
+                    _regulations = await regTask!;
+                    _regulationsLoading = false;
+                    Cache.SetRegulations(lat, lng, _regulations);
+                    StateHasChanged();
+                }
+                else if (finished == spotsTask)
+                {
+                    _spots = await spotsTask!;
+                    _spotsLoading = false;
+                    Cache.SetSpots(lat, lng, _spots);
+                    StateHasChanged();
+                }
+            }
+        }
+        catch
+        {
             _regulationsLoading = false;
             _spotsLoading = false;
             StateHasChanged();
@@ -451,8 +541,6 @@
         if (e.Key == "Enter" && !e.ShiftKey)
             await SendChatAsync();
     }
-
-    // ?? SVG icon helpers ????????????????????????????????????????????
 
     private static string GetWeatherSvg(int code)
     {
@@ -485,8 +573,6 @@
         "last-quarter"  => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 0 0 20V2z" fill="currentColor"/><circle cx="12" cy="12" r="10"/></svg>""",
         _               => """<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>"""
     };
-
-    // ?? Markdown renderer ???????????????????????????????????????????
 
     private static string RenderMarkdown(string md)
     {

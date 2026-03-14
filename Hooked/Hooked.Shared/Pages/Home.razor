@@ -8,116 +8,106 @@
 <PageTitle>Hooked</PageTitle>
 
 <div class="mobile-shell">
-    <section class="hero ocean-glass">
-        <div class="badge-pill">AI-Powered Catch Hub</div>
-        <h1 class="welcome">Dive into your next trophy catch.</h1>
-        <div class="subtitle">Track catches, map hotspots, and identify species in a single fluid workspace.</div>
-        <div class="hero-actions">
-            <button class="action primary" @onclick="ScanFish">Open AI Scanner</button>
-            <button class="action secondary" @onclick="GoToFishDex">Browse FishDex</button>
+    <!-- Sleek Top Header -->
+    <header class="home-top-bar">
+        <div class="greeting-area">
+            <h1 class="greeting">Ready to cast? 🎣</h1>
+            <p class="greeting-sub">Let's see what you catch today.</p>
+        </div>
+        <button class="user-avatar ghost-icon" @onclick="GoToInsights" aria-label="Profile">
+            <AppIcon Name="user" Size="20" />
+        </button>
+    </header>
+
+    <!-- Main CTA: AI Scanner -->
+    <section class="main-cta-container">
+        <button class="scanner-btn" @onclick="ScanFish">
+            <div class="scanner-btn-content">
+                <div class="scanner-icon-wrap">
+                    <AppIcon Name="scan" Size="26" />
+                </div>
+                <div class="scanner-text">
+                    <span class="scanner-title">Identify Custom Catch</span>
+                    <span class="scanner-desc">Scan and log a fish instantly</span>
+                </div>
+            </div>
+            <div class="scanner-arrow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+        </button>
+    </section>
+
+    <!-- Quick Stats Ribbon (Replaces large cards) -->
+    <section class="stats-ribbon ocean-glass">
+        <div class="mini-stat">
+            <span class="ms-value">@recentCatchCount</span>
+            <span class="ms-label">Total</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="mini-stat">
+            <span class="ms-value">@todayCatchCount</span>
+            <span class="ms-label">Today</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="mini-stat">
+            <span class="ms-value">@longestCatchText</span>
+            <span class="ms-label">Record</span>
         </div>
     </section>
 
-    <section class="stats-grid">
-        <article class="stat-card ocean-glass">
-            <div class="stat-label">Recent Catches</div>
-            <div class="stat-value">@recentCatchCount</div>
+    <!-- Quick Links -->
+    <section class="quick-links-grid">
+        <article class="quick-link-card ocean-glass" @onclick="GoToFishDex">
+            <AppIcon Name="book-open" Size="22" />
+            <div class="link-label">FishDex</div>
         </article>
-        <article class="stat-card ocean-glass">
-            <div class="stat-label">Today's Catches</div>
-            <div class="stat-value">@todayCatchCount</div>
+        <article class="quick-link-card ocean-glass" @onclick="GoToInsights">
+            <AppIcon Name="chart-bar" Size="22" />
+            <div class="link-label">Insights</div>
         </article>
-        <article class="stat-card ocean-glass">
-            <div class="stat-label">Best Length</div>
-            <div class="stat-value">@longestCatchText</div>
+        <article class="quick-link-card ocean-glass" @onclick="GoToLeaderboard">
+            <AppIcon Name="medal" Size="22" />
+            <div class="link-label">Ranks</div>
         </article>
-    </section>
-
-    <!-- Conservation news -->
-    <section class="home-news">
-        <div class="news-header">
-            <h3 class="home-section-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"/><path d="M16 2v4"/><path d="M8 10h8"/><path d="M8 14h4"/></svg>
-                Fishing &amp; Conservation News
-            </h3>
-        </div>
-
-        <!-- Filter chips -->
-        <div class="news-filters">
-            @foreach (var f in NewsFilters)
-            {
-                <button class="news-filter-chip @(activeNewsFilter == f.Key ? "news-filter-chip--active" : "")"
-                        type="button"
-                        @onclick="() => SetNewsFilter(f.Key)">
-                    @f.Label
-                </button>
-            }
-        </div>
-
-        <div class="news-list">
-            @foreach (var item in visibleNewsItems)
-            {
-                <article class="news-card ocean-glass news-card--@item.Tag">
-                    <div class="news-tag-badge news-tag--@item.Tag">@item.TagLabel</div>
-                    <div class="news-headline">@item.Headline</div>
-                    <div class="news-body">@item.Body</div>
-                    @if (item.ActionHref is not null)
-                    {
-                        <a class="news-action" href="@item.ActionHref" target="_blank" rel="noopener noreferrer">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                            @item.ActionLabel
-                        </a>
-                    }
-                </article>
-            }
-        </div>
-
-        @if (filteredNewsItems.Count > newsShowCount)
-        {
-            <button class="news-load-more" type="button" @onclick="ShowMoreNews">
-                Show @Math.Min(NewsPageSize, filteredNewsItems.Count - newsShowCount) more
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-        }
-        else if (newsShowCount > NewsPageSize)
-        {
-            <button class="news-load-more" type="button" @onclick="CollapseNews">
-                Show less
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-            </button>
-        }
     </section>
 
     <!-- Recent catches -->
     <section class="recent">
-        <h3 class="home-section-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.46-3.44 6-7 6s-7.56-2.54-8.5-6z"/><path d="M18 12v.01"/><path d="m2 12 4-4"/><path d="m2 12 4 4"/></svg>
-            Recent catches
-        </h3>
+        <div class="section-header-compact">
+            <h3 class="home-section-title">
+                <AppIcon Name="feed" Size="16" /> Recent Catches
+            </h3>
+        </div>
         @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
         {
             <p class="muted">@loadErrorMessage</p>
         }
         else if (allCatches is null)
         {
-            <p class="muted">Loading…</p>
+            <div class="loading-pulse">Loading...</div>
         }
         else if (!allCatches.Any())
         {
-            <p class="muted">No catches yet — start by scanning a fish.</p>
+            <div class="empty-state">
+                <AppIcon Name="fish" Size="32" />
+                <p>No catches yet. Tap the scanner to begin!</p>
+            </div>
         }
         else
         {
-            <div class="recent-list">
+            <div class="recent-list-compact">
                 @foreach (var c in visibleCatches)
                 {
-                    <article class="catch-card" @onclick="() => OpenCatch(c.Id)">
-                        <div class="catch-photo" aria-hidden="true">
-                            <AppIcon Name='@((c.PhotoPath is null) ? "fish" : "image")' Size="16" />
+                    <article class="catch-card-compact" @onclick="() => OpenCatch(c.Id)">
+                        <div class="catch-photo-compact">
+                            <AppIcon Name='@((c.PhotoPath is null) ? "fish" : "image")' Size="18" />
                         </div>
                         <div class="catch-meta">
                             <div class="species">@c.Species?.CommonName</div>
-                            <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("g")</div>
+                            <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("MMM dd")</div>
+                        </div>
+                        <div class="catch-arrow">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                         </div>
                     </article>
                 }
@@ -125,19 +115,47 @@
 
             @if (catchesShowCount < allCatches.Count)
             {
-                <button class="news-load-more" type="button" @onclick="ShowMoreCatches">
-                    Show @Math.Min(CatchPageSize, allCatches.Count - catchesShowCount) more
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-            }
-            else if (allCatches.Count > CatchPageSize)
-            {
-                <button class="news-load-more" type="button" @onclick="CollapseCatches">
-                    Show less
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                <button class="list-more-btn" type="button" @onclick="ShowMoreCatches">
+                    Show more
                 </button>
             }
         }
+    </section>
+
+    <!-- Conservation news -->
+    <section class="home-news">
+        <div class="section-header-compact">
+            <h3 class="home-section-title">
+                <AppIcon Name="compass" Size="16" /> Need to Know
+            </h3>
+        </div>
+
+        <div class="news-carousel">
+            @foreach (var item in visibleNewsItems)
+            {
+                <article class="modern-news-card news-type-@item.Tag">
+                    <div class="news-top-bar">
+                        <span class="news-badge tag-@item.Tag">
+                            @if (item.Tag == "endangered") { <AppIcon Name="heart" Size="12" /> }
+                            else if (item.Tag == "invasive") { <AppIcon Name="alert-triangle" Size="12" /> }
+                            else if (item.Tag == "regulation") { <AppIcon Name="book-open" Size="12" /> }
+                            else if (item.Tag == "conservation") { <AppIcon Name="compass" Size="12" /> }
+                            @item.TagLabel
+                        </span>
+                    </div>
+                    <h4 class="news-headline">@item.Headline</h4>
+                    <p class="news-body-clamp">@item.Body</p>
+                    @if (item.ActionHref is not null)
+                    {
+                        <div class="news-footer">
+                            <a class="news-action" href="@item.ActionHref" target="_blank" rel="noopener noreferrer">
+                                @item.ActionLabel <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </a>
+                        </div>
+                    }
+                </article>
+            }
+        </div>
     </section>
 
     <BottomNav />
@@ -223,6 +241,8 @@
 
     private void ScanFish() => NavigationManager.NavigateTo("/arscanner");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
+    private void GoToInsights() => NavigationManager.NavigateTo("/insights");
+    private void GoToLeaderboard() => NavigationManager.NavigateTo("/leaderboard");
     private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 
     // ── Static conservation news ────────────────────────────────────
