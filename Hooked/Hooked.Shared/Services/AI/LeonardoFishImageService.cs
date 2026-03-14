@@ -106,11 +106,13 @@ namespace Hooked.Shared.Services.AI
             {
                 ["prompt"] = BuildPrompt(speciesName, fishDescription),
                 ["negative_prompt"] = BuildNegativePrompt(),
-                // Explicitly use AlbedoBase XL (an SDXL model perfect for 1024x1024 illustrations)
+                // Explicitly use AlbedoBase XL (an SDXL model perfect for 1024x1024/1024x768 illustrations)
                 ["modelId"] = "2067ae52-33fd-4a82-bb92-c2c55e7d2786",
                 ["num_images"] = 1,
-                ["height"] = 1024,
+
+                // Landscape resolution to prevent the AI from stacking two fish vertically
                 ["width"] = 1024,
+                ["height"] = 768,
 
                 // Turn off legacy settings that break SDXL
                 ["promptMagic"] = false,
@@ -130,7 +132,7 @@ namespace Hooked.Shared.Services.AI
                 }
             };
 
-            await LogAsync(onLog, "Leonardo settings: AlbedoBase XL, ControlNet Style Reference (ID 67), Strength=Low.").ConfigureAwait(false);
+            await LogAsync(onLog, "Leonardo settings: AlbedoBase XL, 1024x768 Landscape, ControlNet Style Reference (ID 67), Strength=Low.").ConfigureAwait(false);
 
             var requestJson = JsonSerializer.Serialize(payload);
             using var request = new HttpRequestMessage(HttpMethod.Post, "generations")
@@ -286,7 +288,7 @@ namespace Hooked.Shared.Services.AI
 
         private static string BuildNegativePrompt()
         {
-            return "multiple fish, two fish, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
+            return "duplicate, clone, twin, reflection, mirrored, stacked, multiple fish, two fish, pair, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
                    "facing right, angled, diagonal, tilted, swimming up, swimming down, perspective, foreshortening, " +
                    "realistic, 3d, photograph, text, watermark, logo, deformed fish anatomy, " +
                    "complicated shading, gradients, shadow, background environment";
