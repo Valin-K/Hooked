@@ -100,7 +100,9 @@
                                 <span class="muted catch-time">@catchItem.CaughtAt.ToLocalTime().ToString("g")</span>
                             </div>
 
-                            <div class="catch-species">@catchItem.SpeciesCommonName</div>
+                            <div class="catch-species">
+                                <a class="catch-species-link" href="/fish/@catchItem.CatchId">@catchItem.SpeciesCommonName</a>
+                            </div>
                             <div class="catch-meta">
                                 <span>@FormatLength(catchItem.LengthMeters)</span>
                                 <span>@FormatWeight(catchItem.WeightKg)</span>
@@ -116,7 +118,10 @@
                             </div>
 
                             <div class="comment-panel">
-                                <div class="muted comment-count">@catchItem.CommentCount comments</div>
+                                <div class="muted comment-count">
+                                    @catchItem.CommentCount comments ·
+                                    <a class="view-all-link" href="/fish/@catchItem.CatchId">View all</a>
+                                </div>
 
                                 @if (catchItem.RecentComments.Count == 0)
                                 {
@@ -128,8 +133,24 @@
                                         @foreach (var comment in catchItem.RecentComments)
                                         {
                                             <li>
-                                                <span class="comment-user">@DisplayNameFor(comment.DisplayName, comment.Username)</span>
+                                                <div class="comment-meta-row">
+                                                    <span class="comment-user">@DisplayNameFor(comment.DisplayName, comment.Username)</span>
+                                                    <span class="comment-time">
+                                                        @comment.CommentedAt.ToLocalTime().ToString("MMM d, h:mm tt")
+                                                        @if (comment.EditedAt.HasValue)
+                                                        {
+                                                            <span class="edited-badge">edited</span>
+                                                        }
+                                                    </span>
+                                                </div>
                                                 <span class="comment-text">@comment.CommentText</span>
+                                                @if (comment.UserId == _currentUser!.Id)
+                                                {
+                                                    <button class="comment-delete-btn"
+                                                            type="button"
+                                                            disabled="@_deleteBusyCommentIds.Contains(comment.Id)"
+                                                            @onclick="() => DeleteCommentAsync(catchItem.CatchId, comment.Id)">Delete</button>
+                                                }
                                             </li>
                                         }
                                     </ul>
@@ -169,6 +190,7 @@
     private readonly Dictionary<Guid, string> _commentDrafts = [];
     private readonly HashSet<Guid> _reactionBusyCatchIds = [];
     private readonly HashSet<Guid> _commentBusyCatchIds = [];
+    private readonly HashSet<Guid> _deleteBusyCommentIds = [];
     private bool _isLoading = true;
     private bool _isFollowBusy;
     private string? _loadError;
@@ -195,6 +217,7 @@
         _commentDrafts.Clear();
         _reactionBusyCatchIds.Clear();
         _commentBusyCatchIds.Clear();
+        _deleteBusyCommentIds.Clear();
 
         try
         {
@@ -340,6 +363,38 @@
         finally
         {
             _commentBusyCatchIds.Remove(catchId);
+        }
+    }
+
+    private async Task DeleteCommentAsync(Guid catchId, Guid commentId)
+    {
+        if (_currentUser is null || _deleteBusyCommentIds.Contains(commentId))
+        {
+            return;
+        }
+
+        var catchItem = _catchItems.FirstOrDefault(c => c.CatchId == catchId);
+        if (catchItem is null)
+        {
+            return;
+        }
+
+        _actionError = null;
+        _deleteBusyCommentIds.Add(commentId);
+
+        try
+        {
+            await SocialService.DeleteCommentAsync(commentId, _currentUser.Id);
+            catchItem.CommentCount = Math.Max(0, catchItem.CommentCount - 1);
+            catchItem.RecentComments.RemoveAll(c => c.Id == commentId);
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _deleteBusyCommentIds.Remove(commentId);
         }
     }
 

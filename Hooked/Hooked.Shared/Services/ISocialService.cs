@@ -19,6 +19,8 @@ namespace Hooked.Shared.Services
         Task<bool> UnfollowAsync(Guid userId, Guid targetUserId, CancellationToken cancellationToken = default);
         Task<SocialReactionToggleDto> ToggleReactionAsync(Guid catchId, Guid userId, CancellationToken cancellationToken = default);
         Task<SocialCommentDto> AddCommentAsync(Guid catchId, Guid userId, string commentText, CancellationToken cancellationToken = default);
+        Task<SocialCommentDto> EditCommentAsync(Guid commentId, Guid requestingUserId, string newText, CancellationToken cancellationToken = default);
+        Task DeleteCommentAsync(Guid commentId, Guid requestingUserId, CancellationToken cancellationToken = default);
         Task<SocialCatchDetailDto?> GetCatchDetailAsync(Guid catchId, Guid viewerUserId, CancellationToken cancellationToken = default);
     }
 
@@ -41,7 +43,8 @@ namespace Hooked.Shared.Services
         string Username,
         string? DisplayName,
         string CommentText,
-        DateTime CommentedAt);
+        DateTime CommentedAt,
+        DateTime? EditedAt);
 
     public sealed record SocialCatchFeedItemDto(
         Guid CatchId,
