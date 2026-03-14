@@ -276,12 +276,20 @@ namespace Hooked.Shared.Services.AI
 
         private static string BuildPrompt(string speciesName, string fishDescription)
         {
-            return $"Vector art illustration of a {speciesName}, full-body side profile. Physical traits: {fishDescription}. The drawing style should be a very simple, flat 2D cartoon, with solid colors, clean outlines, no gradients, and minimalistic details, matching the reference image style exactly. Isolated on a plain white background.";
+            return $"A single, solo vector art illustration of EXACTLY ONE {speciesName}. " +
+                   $"The fish MUST be perfectly horizontal and level on the axis, not angled. " +
+                   $"Strict full-body side profile view with the head facing left. " +
+                   $"Anatomical and color traits MUST follow this description exactly: ({fishDescription}:1.3). " +
+                   $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, clean outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
+                   $"Isolated on a pure, plain white background.";
         }
 
         private static string BuildNegativePrompt()
         {
-            return "realistic, 3d, photograph, multiple fish, text, watermark, logo, deformed fish anatomy, fantasy fish colors, wrong details, complicated shading, gradients, shadow, background environment";
+            return "multiple fish, two fish, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
+                   "facing right, angled, diagonal, tilted, swimming up, swimming down, perspective, foreshortening, " +
+                   "realistic, 3d, photograph, text, watermark, logo, deformed fish anatomy, " +
+                   "complicated shading, gradients, shadow, background environment";
         }
     }
 }
