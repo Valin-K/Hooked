@@ -171,6 +171,24 @@ namespace Hooked.Shared.Services
                 Since = DateTime.UtcNow
             });
 
+            var follower = await _db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.Username, u.DisplayName })
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var followerName = follower?.DisplayName ?? follower?.Username ?? "Someone";
+
+            _db.Notifications.Add(new Notification
+            {
+                UserId = targetUserId,
+                Type = "follow",
+                Title = $"{followerName} started following you",
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+                TriggeredByUserId = userId
+            });
+
             await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
@@ -228,6 +246,35 @@ namespace Hooked.Shared.Services
                     UserId = userId,
                     ReactedAt = DateTime.UtcNow
                 });
+
+                var catchInfo = await _db.CatchRecords
+                    .Where(c => c.Id == catchId)
+                    .Select(c => new { c.UserId, SpeciesName = c.Species!.CommonName })
+                    .FirstOrDefaultAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (catchInfo != null && catchInfo.UserId != userId)
+                {
+                    var reactor = await _db.Users
+                        .Where(u => u.Id == userId)
+                        .Select(u => new { u.Username, u.DisplayName })
+                        .FirstOrDefaultAsync(cancellationToken)
+                        .ConfigureAwait(false);
+
+                    var reactorName = reactor?.DisplayName ?? reactor?.Username ?? "Someone";
+                    var speciesText = string.IsNullOrWhiteSpace(catchInfo.SpeciesName) ? "catch" : $"{catchInfo.SpeciesName} catch";
+
+                    _db.Notifications.Add(new Notification
+                    {
+                        UserId = catchInfo.UserId,
+                        Type = "reaction",
+                        Title = $"{reactorName} liked your {speciesText}",
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow,
+                        CatchId = catchId,
+                        TriggeredByUserId = userId
+                    });
+                }
             }
             else
             {
@@ -280,6 +327,33 @@ namespace Hooked.Shared.Services
 
             _db.CatchComments.Add(comment);
             await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            var catchInfo = await _db.CatchRecords
+                .Where(c => c.Id == catchId)
+                .Select(c => new { c.UserId, SpeciesName = c.Species!.CommonName })
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (catchInfo != null && catchInfo.UserId != userId)
+            {
+                var commenterName = commenter.DisplayName ?? commenter.Username;
+                var speciesText = string.IsNullOrWhiteSpace(catchInfo.SpeciesName) ? "catch" : $"{catchInfo.SpeciesName} catch";
+                var preview = sanitizedComment.Length > 100 ? string.Concat(sanitizedComment.AsSpan(0, 97), "…") : sanitizedComment;
+
+                _db.Notifications.Add(new Notification
+                {
+                    UserId = catchInfo.UserId,
+                    Type = "comment",
+                    Title = $"{commenterName} commented on your {speciesText}",
+                    Body = preview,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow,
+                    CatchId = catchId,
+                    TriggeredByUserId = userId
+                });
+
+                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             return new SocialCommentDto(
                 comment.Id,
