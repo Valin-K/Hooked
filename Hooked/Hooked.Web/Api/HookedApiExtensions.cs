@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Hooked.Shared.Services;
+using Hooked.Shared.Services.Search;
 
 namespace Hooked.Web.Api
 {
@@ -18,6 +19,39 @@ namespace Hooked.Web.Api
             });
 
             group.MapGet("/catches/recent", async (ICatchService catchService) => Results.Ok(await catchService.GetRecentCatchesAsync())).WithName("GetRecentCatches");
+
+            // Admin: force reindex all catches into Elasticsearch
+            group.MapPost("/search/reindex", async (
+                IElasticSearchService? elasticSearchService,
+                Hooked.Shared.Data.HookedDbContext db,
+                CancellationToken cancellationToken) =>
+            {
+                if (elasticSearchService is null)
+                    return Results.Problem("Elasticsearch is not configured.", statusCode: 503);
+
+                var catches = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                    .ToListAsync(db.CatchRecords, cancellationToken).ConfigureAwait(false);
+                await elasticSearchService.BulkReindexAsync(catches, cancellationToken).ConfigureAwait(false);
+                return Results.Ok(new { reindexed = catches.Count });
+            }).WithName("ReindexCatches");
+
+
+            group.MapGet("/search/catches", async (
+                IElasticSearchService? elasticSearchService,
+                string? q,
+                double? lat,
+                double? lon,
+                double? radiusKm,
+                int? limit,
+                CancellationToken cancellationToken) =>
+            {
+                if (elasticSearchService is null)
+                    return Results.Problem("Elasticsearch is not configured.", statusCode: 503);
+
+                var results = await elasticSearchService.SearchCatchesAsync(
+                    q, lat, lon, radiusKm, limit ?? 25, cancellationToken).ConfigureAwait(false);
+                return Results.Ok(results);
+            }).WithName("SearchCatches");
 
             var social = group.MapGroup("/social");
 
