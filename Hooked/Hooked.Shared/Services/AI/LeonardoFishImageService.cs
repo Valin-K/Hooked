@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Hooked.Shared.Services.AI
 {
@@ -84,6 +88,21 @@ namespace Hooked.Shared.Services.AI
                 if (!string.IsNullOrWhiteSpace(url))
                 {
                     await LogAsync(onLog, "Leonardo image ready.").ConfigureAwait(false);
+
+                    using var downloadClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+                    var transparentPngDataUrl = await TryConvertToTransparentPngDataUrlAsync(
+                        downloadClient,
+                        url,
+                        onLog,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (!string.IsNullOrWhiteSpace(transparentPngDataUrl))
+                    {
+                        await LogAsync(onLog, "Transparent PNG conversion succeeded.").ConfigureAwait(false);
+                        return transparentPngDataUrl;
+                    }
+
+                    await LogAsync(onLog, "Transparent PNG conversion skipped; using original image URL.").ConfigureAwait(false);
                     return url;
                 }
 
@@ -91,6 +110,31 @@ namespace Hooked.Shared.Services.AI
             }
 
             throw new InvalidOperationException("Leonardo image generation timed out.");
+        }
+
+        /// <summary>
+        /// Converts a generated fish image URL into a transparent PNG data URL.
+        /// </summary>
+        public async Task<string?> ConvertToTransparentPngDataUrlAsync(
+            string imageUrl,
+            Func<string, Task>? onLog = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                throw new ArgumentException("Image URL is required.", nameof(imageUrl));
+            }
+
+            using var httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(60)
+            };
+
+            return await TryConvertToTransparentPngDataUrlAsync(
+                httpClient,
+                imageUrl,
+                onLog,
+                cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<string> CreateGenerationAsync(
@@ -266,6 +310,202 @@ namespace Hooked.Shared.Services.AI
             return onLog is null ? Task.CompletedTask : onLog(message);
         }
 
+        private static async Task<string?> TryConvertToTransparentPngDataUrlAsync(
+            HttpClient httpClient,
+            string imageUrl,
+            Func<string, Task>? onLog,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                byte[] imageBytes;
+                if (TryReadImageBytesFromDataUrl(imageUrl, out var decodedDataUrlBytes))
+                {
+                    imageBytes = decodedDataUrlBytes;
+                }
+                else
+                {
+                    if (imageUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LogAsync(onLog, "Image data URL could not be decoded for transparency pass.").ConfigureAwait(false);
+                        return null;
+                    }
+
+                    using var imageResponse = await httpClient.GetAsync(imageUrl, cancellationToken).ConfigureAwait(false);
+                    if (!imageResponse.IsSuccessStatusCode)
+                    {
+                        await LogAsync(onLog, $"Image download failed for transparency pass: {(int)imageResponse.StatusCode}.").ConfigureAwait(false);
+                        return null;
+                    }
+
+                    imageBytes = await imageResponse.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (imageBytes.Length == 0)
+                {
+                    await LogAsync(onLog, "Image download returned empty bytes for transparency pass.").ConfigureAwait(false);
+                    return null;
+                }
+
+                using var image = Image.Load<Rgba32>(imageBytes);
+                RemoveBorderConnectedBackground(image);
+
+                await using var output = new MemoryStream();
+                await image.SaveAsPngAsync(output, new PngEncoder(), cancellationToken).ConfigureAwait(false);
+                var base64 = Convert.ToBase64String(output.ToArray());
+                return $"data:image/png;base64,{base64}";
+            }
+            catch (HttpRequestException ex)
+            {
+                await LogAsync(onLog, $"Transparent PNG conversion failed: {Truncate(ex.Message, 200)}").ConfigureAwait(false);
+                return null;
+            }
+            catch (TaskCanceledException ex)
+            {
+                await LogAsync(onLog, $"Transparent PNG conversion timed out or was canceled: {Truncate(ex.Message, 200)}").ConfigureAwait(false);
+                return null;
+            }
+            catch (InvalidImageContentException ex)
+            {
+                await LogAsync(onLog, $"Transparent PNG conversion failed due to image format/content: {Truncate(ex.Message, 200)}").ConfigureAwait(false);
+                return null;
+            }
+            catch (IOException ex)
+            {
+                await LogAsync(onLog, $"Transparent PNG conversion failed while reading/writing image bytes: {Truncate(ex.Message, 200)}").ConfigureAwait(false);
+                return null;
+            }
+        }
+
+        private static bool TryReadImageBytesFromDataUrl(string imageUrl, out byte[] imageBytes)
+        {
+            imageBytes = Array.Empty<byte>();
+            const string base64Marker = ";base64,";
+
+            if (!imageUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var markerIndex = imageUrl.IndexOf(base64Marker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex < 0)
+            {
+                return false;
+            }
+
+            var base64 = imageUrl[(markerIndex + base64Marker.Length)..];
+            if (string.IsNullOrWhiteSpace(base64))
+            {
+                return false;
+            }
+
+            try
+            {
+                imageBytes = Convert.FromBase64String(base64);
+                return imageBytes.Length > 0;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
+        private static void RemoveBorderConnectedBackground(Image<Rgba32> image)
+        {
+            var width = image.Width;
+            var height = image.Height;
+            if (width == 0 || height == 0)
+            {
+                return;
+            }
+
+            // Trust the corners to be the actual background color, since AI usually places the fish in the center.
+            // By only using the corners (instead of averaging the whole boundary), we prevent fish fins from corrupting the background seed.
+            var bgSamples = new Rgba32[4];
+            bgSamples[0] = image[0, 0];
+            bgSamples[1] = image[width - 1, 0];
+            bgSamples[2] = image[0, height - 1];
+            bgSamples[3] = image[width - 1, height - 1];
+
+            // A very safe, conservative color distance to prevent bleeding into the illustration
+            var threshold = 40d;
+            var visited = new bool[width * height];
+            var queue = new Queue<(int X, int Y)>();
+
+            static int IndexOf(int x, int y, int w) => (y * w) + x;
+
+            void TryEnqueue(int x, int y)
+            {
+                var index = IndexOf(x, y, width);
+                if (visited[index])
+                {
+                    return;
+                }
+
+                visited[index] = true;
+                
+                var pixel = image[x, y];
+                if (pixel.A == 0) 
+                {
+                    queue.Enqueue((x, y));
+                    return;
+                }
+
+                // Check distance to any corner background sample
+                var isBg = false;
+                foreach (var sample in bgSamples)
+                {
+                    if (ColorDistance(pixel, sample) <= threshold)
+                    {
+                        isBg = true;
+                        break;
+                    }
+                }
+
+                if (isBg)
+                {
+                    queue.Enqueue((x, y));
+                }
+            }
+
+            // Start flood fill strictly from the absolute borders, and ONLY enqueue if they closely match the corner colors.
+            // This prevents flood-filling the fish if the fish happens to touch the border of the generated image.
+            for (var x = 0; x < width; x++)
+            {
+                TryEnqueue(x, 0);
+                TryEnqueue(x, height - 1);
+            }
+            
+            for (var y = 0; y < height; y++)
+            {
+                TryEnqueue(0, y);
+                TryEnqueue(width - 1, y);
+            }
+
+            // Execute flood fill
+            while (queue.Count > 0)
+            {
+                var (cx, cy) = queue.Dequeue();
+                
+                var p = image[cx, cy];
+                p.A = 0;
+                image[cx, cy] = p;
+
+                if (cx > 0) TryEnqueue(cx - 1, cy);
+                if (cx < width - 1) TryEnqueue(cx + 1, cy);
+                if (cy > 0) TryEnqueue(cx, cy - 1);
+                if (cy < height - 1) TryEnqueue(cx, cy + 1);
+            }
+        }
+
+        private static double ColorDistance(Rgba32 a, Rgba32 b)
+        {
+            var dR = a.R - b.R;
+            var dG = a.G - b.G;
+            var dB = a.B - b.B;
+            return Math.Sqrt((dR * dR) + (dG * dG) + (dB * dB));
+        }
+
         private static string Truncate(string value, int maxLength)
         {
             if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
@@ -282,8 +522,8 @@ namespace Hooked.Shared.Services.AI
                    $"The fish MUST be perfectly horizontal and level on the axis, not angled. " +
                    $"Strict full-body side profile view with the head facing left. " +
                    $"Anatomical and color traits MUST follow this description exactly: ({fishDescription}:1.3). " +
-                   $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, clean outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
-                   $"Isolated on a pure, plain white background.";
+                   $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, thick continuous clean black outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
+                   $"The fish must be isolated as a clean cutout on a perfectly solid, pure white background (#FFFFFF), with absolutely no shadows, no gradients, and no backdrop elements.";
         }
 
         private static string BuildNegativePrompt()
@@ -291,7 +531,7 @@ namespace Hooked.Shared.Services.AI
             return "duplicate, clone, twin, reflection, mirrored, stacked, multiple fish, two fish, pair, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
                    "facing right, angled, diagonal, tilted, swimming up, swimming down, perspective, foreshortening, " +
                    "realistic, 3d, photograph, text, watermark, logo, deformed fish anatomy, " +
-                   "complicated shading, gradients, shadow, background environment";
+                   "complicated shading, gradients, drop shadow, green screen, blue background, transparent background, checkerboard, underwater scene, seafloor, plants, bubbles";
         }
     }
 }

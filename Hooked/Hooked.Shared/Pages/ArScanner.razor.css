@@ -1,0 +1,92 @@
+.scanner-shell {
+    padding-bottom: 8rem;
+}
+
+.scanner-card {
+    border-radius: 24px;
+    padding: 1.1rem;
+}
+
+.scanner-card h1 {
+    margin: 0.65rem 0 0.35rem;
+}
+
+.scanner-field-label {
+    margin-top: 0.85rem;
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-soft);
+}
+
+.scanner-input {
+    margin-top: 0.35rem;
+    width: 100%;
+    min-height: 2.7rem;
+    border-radius: 14px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-strong);
+    padding: 0.55rem 0.75rem;
+}
+
+.scanner-submit {
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.scanner-status {
+    margin-top: 0.85rem;
+}
+
+.scanner-error {
+    margin-top: 0.85rem;
+    color: #ff8f8f;
+}
+
+.scanner-result-head {
+    margin-top: 0.85rem;
+    font-size: 1.18rem;
+    font-weight: 700;
+}
+
+.scanner-image-wrap {
+    margin-top: 0.8rem;
+    border-radius: 16px;
+    border: none;
+    background: transparent;
+    overflow: hidden;
+}
+
+.scanner-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: contain;
+}
+
+.scanner-actions-row {
+    margin-top: 0.9rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.scanner-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 7, 18, 0.68);
+    display: grid;
+    place-items: center;
+    z-index: 1400;
+    padding: 1rem;
+}
+
+.scanner-popup {
+    width: min(520px, 100%);
+    border-radius: 20px;
+    padding: 1.1rem;
+}
+
+.scanner-popup h2 {
+    margin: 0 0 0.45rem;
+}
