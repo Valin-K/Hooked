@@ -7,29 +7,19 @@
 
 <div class="mobile-shell leaderboard-shell">
     <div class="lb-filters ocean-glass">
-        <div class="filter-group">
-            <button class="filter-pill @(metric == LeaderboardMetric.MostCaught ? "active" : "")"
-                    type="button"
-                    @onclick="@(() => SetMetric(LeaderboardMetric.MostCaught))">
-                Most Caught
-            </button>
-            <button class="filter-pill @(metric == LeaderboardMetric.LargestFish ? "active" : "")"
-                    type="button"
-                    @onclick="@(() => SetMetric(LeaderboardMetric.LargestFish))">
-                Largest Fish
-            </button>
+        <div class="filter-dropdown">
+            <label class="filter-label">Sort By</label>
+            <select class="filter-select" @bind="metric" @bind:after="OnMetricChanged">
+                <option value="@LeaderboardMetric.MostCaught">Most Caught</option>
+                <option value="@LeaderboardMetric.LargestFish">Largest Fish</option>
+            </select>
         </div>
-        <div class="filter-group">
-            <button class="filter-pill @(scope == LeaderboardScope.AllUsers ? "active" : "")"
-                    type="button"
-                    @onclick="@(() => SetScope(LeaderboardScope.AllUsers))">
-                All Anglers
-            </button>
-            <button class="filter-pill @(scope == LeaderboardScope.Friends ? "active" : "")"
-                    type="button"
-                    @onclick="@(() => SetScope(LeaderboardScope.Friends))">
-                Friends
-            </button>
+        <div class="filter-dropdown">
+            <label class="filter-label">Show</label>
+            <select class="filter-select" @bind="scope" @bind:after="OnScopeChanged">
+                <option value="@LeaderboardScope.AllUsers">All Anglers</option>
+                <option value="@LeaderboardScope.Friends">Friends</option>
+            </select>
         </div>
     </div>
 
@@ -105,17 +95,13 @@
         await LoadAsync();
     }
 
-    private async Task SetMetric(LeaderboardMetric newMetric)
+    private async Task OnMetricChanged()
     {
-        if (newMetric == metric) return;
-        metric = newMetric;
         await LoadAsync();
     }
 
-    private async Task SetScope(LeaderboardScope newScope)
+    private async Task OnScopeChanged()
     {
-        if (newScope == scope) return;
-        scope = newScope;
         await LoadAsync();
     }
 
