@@ -1,5 +1,6 @@
 :root {
     --ocean-0: #030712;
+    --safe-area-bg: #030712;
     --ocean-1: #071225;
     --ocean-2: #0a1d36;
     --ocean-3: #0f2a46;
@@ -23,6 +24,7 @@
 
 :root[data-theme="light"] {
     --ocean-0: #eff8ff;
+    --safe-area-bg: #eff8ff;
     --ocean-1: #dbeefe;
     --ocean-2: #c3e2ff;
     --ocean-3: #eaf4ff;
@@ -54,6 +56,7 @@ body {
     min-height: 100%;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     color: var(--text-strong);
+    background-color: var(--safe-area-bg);
     background:
         radial-gradient(1200px 700px at 15% -10%, rgba(59, 130, 246, 0.22), transparent 60%),
         radial-gradient(900px 500px at 100% 0%, rgba(34, 211, 238, 0.2), transparent 65%),
@@ -142,8 +145,8 @@ h1:focus {
 }
 
 /* ?? Mapbox SVG pin marker ?? */
-/* No filter/drop-shadow on the container — SVG handles its own shadow via <filter> or box-shadow */
-/* The element div is sized exactly PIN_W × PIN_H so anchor:'bottom' is pixel-perfect */
+/* No filter/drop-shadow on the container ï¿½ SVG handles its own shadow via <filter> or box-shadow */
+/* The element div is sized exactly PIN_W ï¿½ PIN_H so anchor:'bottom' is pixel-perfect */
 
 /* Popup ?? */
 .mapboxgl-popup-content {
@@ -212,7 +215,7 @@ h1:focus {
     margin-top: 0.1rem;
 }
 
-/* ?? Style toggle — rendered via Mapbox IControl in top-right slot ?? */
+/* ?? Style toggle ï¿½ rendered via Mapbox IControl in top-right slot ?? */
 .hk-style-ctrl {
     border-radius: 999px !important;
     overflow: hidden;
@@ -236,6 +239,8 @@ h1:focus {
 }
 
 .hk-style-btn svg {
+    width: 0.95rem;
+    height: 0.95rem;
     display: block;
     flex-shrink: 0;
 }
@@ -244,7 +249,7 @@ h1:focus {
     background: #f2f2f2;
 }
 
-/* ?? Species legend — lives in .map-wrap (outside overflow:hidden canvas) ?? */
+/* ?? Species legend ï¿½ lives in .map-wrap (outside overflow:hidden canvas) ?? */
 .hk-legend {
     position: absolute;
     bottom: 2.2rem;   /* above the scale bar */

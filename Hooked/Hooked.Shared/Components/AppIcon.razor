@@ -1,0 +1,143 @@
+<svg class="@BuildClassName()"
+     width="@Size"
+     height="@Size"
+     viewBox="0 0 24 24"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="@StrokeWidth"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false">
+    @switch (NormalizedName)
+    {
+        case "home":
+            <path d="M3.5 10.5 12 3.5l8.5 7" />
+            <path d="M5.5 9.6V20h13V9.6" />
+            <path d="M10 20v-5h4v5" />
+            break;
+        case "map":
+            <path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5V4.5L15 7 9 4Z" />
+            <path d="M9 4v13" />
+            <path d="M15 7v12.5" />
+            break;
+        case "compass":
+            <circle cx="12" cy="12" r="9" />
+            <path d="m15.5 8.5-2.7 6.3-6.3 2.7 2.7-6.3z" />
+            break;
+        case "chart-line":
+            <path d="M4 19h16" />
+            <path d="m6 15 4-4 3 3 5-6" />
+            break;
+        case "chart-bar":
+            <path d="M4 20h16" />
+            <path d="M7 20v-6" />
+            <path d="M12 20v-10" />
+            <path d="M17 20v-4" />
+            break;
+        case "feed":
+            <rect x="4" y="5" width="16" height="14" rx="2" />
+            <path d="M8 9h8" />
+            <path d="M8 13h5" />
+            <path d="M8 17h8" />
+            break;
+        case "image":
+            <rect x="4" y="5" width="16" height="14" rx="2" />
+            <circle cx="9" cy="10" r="1.2" />
+            <path d="m20 15-3.5-3.5-3.2 3.2-1.8-1.8L8 16.5" />
+            break;
+        case "scan":
+            <path d="M4 8V5h3" />
+            <path d="M20 8V5h-3" />
+            <path d="M4 16v3h3" />
+            <path d="M20 16v3h-3" />
+            <path d="M8.5 12h7" />
+            break;
+        case "heart":
+            <path d="M12 20.6s-7-4.4-7-10a4.1 4.1 0 0 1 7-2.7 4.1 4.1 0 0 1 7 2.7c0 5.6-7 10-7 10Z" />
+            break;
+        case "heart-filled":
+            <path d="M12 20.6s-7-4.4-7-10a4.1 4.1 0 0 1 7-2.7 4.1 4.1 0 0 1 7 2.7c0 5.6-7 10-7 10Z"
+                  fill="currentColor"
+                  stroke="none" />
+            break;
+        case "fish":
+            <path d="M3 12s3-5 8-5c3 0 5 2 6 5-1 3-3 5-6 5-5 0-8-5-8-5Z" />
+            <path d="M17 12h4" />
+            <path d="m20 10 2 2-2 2" />
+            <circle cx="11" cy="11" r="1" />
+            break;
+        case "book-open":
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v17H6.5A2.5 2.5 0 0 0 4 22Z" />
+            <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v17h5.5A2.5 2.5 0 0 1 20 22Z" />
+            break;
+        case "trophy":
+            <path d="M8 4h8v4a4 4 0 0 1-8 0Z" />
+            <path d="M6 6H4a2 2 0 0 0 0 4h2" />
+            <path d="M18 6h2a2 2 0 0 1 0 4h-2" />
+            <path d="M12 12v4" />
+            <path d="M8 20h8" />
+            break;
+        case "medal":
+            <circle cx="12" cy="11" r="4" />
+            <path d="M9 3h6l-1.4 4H10.4Z" />
+            <path d="M12 15v6" />
+            <path d="M9 21h6" />
+            break;
+        case "user":
+            <circle cx="12" cy="8" r="4" />
+            <path d="M5 20a7 7 0 0 1 14 0" />
+            break;
+        case "user-circle":
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="10" r="3" />
+            <path d="M7 18c1.8-2 7.2-2 10 0" />
+            break;
+        case "sun":
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" />
+            <path d="M12 20v2" />
+            <path d="m4.9 4.9 1.4 1.4" />
+            <path d="m17.7 17.7 1.4 1.4" />
+            <path d="M2 12h2" />
+            <path d="M20 12h2" />
+            <path d="m4.9 19.1 1.4-1.4" />
+            <path d="m17.7 6.3 1.4-1.4" />
+            break;
+        case "moon":
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z" />
+            break;
+        case "arrow-left":
+            <path d="M19 12H5" />
+            <path d="m12 19-7-7 7-7" />
+            break;
+        case "map-pin":
+            <path d="M12 21s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10Z" />
+            <circle cx="12" cy="11" r="2.5" />
+            break;
+        default:
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 16h.01" />
+            <path d="M9.3 9.5a2.7 2.7 0 1 1 5.4 0c0 1.8-2 2.3-2.7 3.5" />
+            break;
+    }
+</svg>
+
+@code {
+    [Parameter]
+    public string Name { get; set; } = "help";
+
+    [Parameter]
+    public int Size { get; set; } = 18;
+
+    [Parameter]
+    public double StrokeWidth { get; set; } = 1.9;
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    private string NormalizedName => (Name ?? string.Empty).Trim().ToLowerInvariant();
+
+    private string BuildClassName()
+        => string.IsNullOrWhiteSpace(Class) ? "app-icon" : $"app-icon {Class}";
+}

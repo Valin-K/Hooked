@@ -14,7 +14,7 @@ window.hookedMap = (() => {
 
     const DEFAULT_COLOUR = { bg: '#69d8ff', border: '#0e7490', text: '#082f49' };
 
-    // SVG pin: 32 wide × 46 tall, geographic point = bottom-centre (16, 46)
+    // SVG pin: 32 wide ï¿½ 46 tall, geographic point = bottom-centre (16, 46)
     const PIN_W  = 32;
     const PIN_H  = 46;
 
@@ -43,7 +43,7 @@ window.hookedMap = (() => {
         </svg>`;
     }
 
-    // Inline SVG icons — font-independent, match the toolbar's sun/moon intent
+    // Inline SVG icons ï¿½ font-independent, match the toolbar's sun/moon intent
     const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
     const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
@@ -119,7 +119,7 @@ window.hookedMap = (() => {
         (map._hookedMarkers ?? []).forEach(m => m.remove());
         map._hookedMarkers = [];
 
-        // Legend lives outside the clipped map canvas — in the wrap overlay
+        // Legend lives outside the clipped map canvas ï¿½ in the wrap overlay
         const wrapEl  = document.getElementById(containerId)?.parentElement;
         const oldLegend = wrapEl?.querySelector('.hk-legend');
         if (oldLegend) oldLegend.remove();
@@ -156,13 +156,13 @@ window.hookedMap = (() => {
                     </div>
                 </div>`);
 
-            // Wrapper div — fixed size, NO transform or filter here (Mapbox owns the transform)
+            // Wrapper div ï¿½ fixed size, NO transform or filter here (Mapbox owns the transform)
             const el = document.createElement('div');
             el.style.cssText = `width:${PIN_W}px;height:${PIN_H}px;cursor:pointer`;
             el.title         = item.species;
             el.innerHTML     = makePinSvg(colour.bg, colour.border, colour.text, initial);
 
-            // Hover animates the SVG child, never the wrapper — preserves Mapbox's translate
+            // Hover animates the SVG child, never the wrapper ï¿½ preserves Mapbox's translate
             const svg = el.querySelector('svg');
             el.addEventListener('mouseenter', () => { svg.style.transform = 'translateY(-4px) scale(1.15)'; });
             el.addEventListener('mouseleave', () => { svg.style.transform = ''; });
