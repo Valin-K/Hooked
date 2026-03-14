@@ -15,8 +15,20 @@ namespace Hooked.Shared.Data
 
         public async Task InitializeAsync(CancellationToken cancellationToken = default)
         {
-            await _dbContext.Database.EnsureDeletedAsync(cancellationToken);
-            await _dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            // MigrateAsync is idempotent: creates the DB if missing, applies any pending
+            // migrations, and is a no-op when already up-to-date.
+            // For SQLite (local dev) we use EnsureCreated â€” the EF migrations are Postgres-
+            // specific (uuid, timestamp with time zone) so MigrateAsync would fail on SQLite.
+            var providerName = _dbContext.Database.ProviderName ?? string.Empty;
+            if (providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+            {
+                await _dbContext.Database.MigrateAsync(cancellationToken);
+            }
+            else
+            {
+                await _dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            }
+
             await SeedDemoDataAsync(cancellationToken);
         }
 
@@ -57,29 +69,29 @@ namespace Hooked.Shared.Data
             // Catches spread across real NSW fishing spots
             var catches = new List<CatchRecord>
             {
-                // Sydney Harbour (Circular Quay) – Australian Bass
+                // Sydney Harbour (Circular Quay) ï¿½ Australian Bass
                 new() { UserId = users[0].Id, SpeciesId = species[0].Id, CaughtAt = now.AddHours(-3),  LengthMeters = 0.42, WeightKg = 1.8,  PhotoPath = "/seed/catches/bass-1.jpg",     LocationJson = "{\"lat\":-33.8568,\"lng\":151.2153}" },
-                // Hawkesbury River (Windsor Bridge) – Murray Cod
+                // Hawkesbury River (Windsor Bridge) ï¿½ Murray Cod
                 new() { UserId = users[0].Id, SpeciesId = species[1].Id, CaughtAt = now.AddDays(-1),   LengthMeters = 0.86, WeightKg = 8.2,  PhotoPath = "/seed/catches/cod-1.jpg",      LocationJson = "{\"lat\":-33.6133,\"lng\":150.8183}" },
-                // Jervis Bay (bay entrance, in water) – Dusky Flathead
+                // Jervis Bay (bay entrance, in water) ï¿½ Dusky Flathead
                 new() { UserId = users[1].Id, SpeciesId = species[2].Id, CaughtAt = now.AddHours(-7),  LengthMeters = 0.71, WeightKg = 3.4,  PhotoPath = "/seed/catches/flathead-1.jpg", LocationJson = "{\"lat\":-35.0667,\"lng\":150.7883}" },
-                // Lake Macquarie (lake centre) – Bream
+                // Lake Macquarie (lake centre) ï¿½ Bream
                 new() { UserId = users[1].Id, SpeciesId = species[7].Id, CaughtAt = now.AddDays(-2),   LengthMeters = 0.34, WeightKg = 0.9,  PhotoPath = "/seed/catches/bream-1.jpg",    LocationJson = "{\"lat\":-33.0833,\"lng\":151.5667}" },
-                // Shoalhaven River (Nowra, in river) – Mulloway
+                // Shoalhaven River (Nowra, in river) ï¿½ Mulloway
                 new() { UserId = users[2].Id, SpeciesId = species[4].Id, CaughtAt = now.AddHours(-9),  LengthMeters = 0.93, WeightKg = 7.6,  PhotoPath = "/seed/catches/mulloway-1.jpg", LocationJson = "{\"lat\":-34.8750,\"lng\":150.6017}" },
-                // Lake Jindabyne (lake centre) – Australian Bass
+                // Lake Jindabyne (lake centre) ï¿½ Australian Bass
                 new() { UserId = users[2].Id, SpeciesId = species[0].Id, CaughtAt = now.AddDays(-3),   LengthMeters = 0.38, WeightKg = 1.3,  PhotoPath = "/seed/catches/bass-2.jpg",     LocationJson = "{\"lat\":-36.4300,\"lng\":148.6483}" },
-                // Offshore Sydney (30 km east) – Yellowfin Tuna
+                // Offshore Sydney (30 km east) ï¿½ Yellowfin Tuna
                 new() { UserId = users[3].Id, SpeciesId = species[3].Id, CaughtAt = now.AddHours(-12), LengthMeters = 1.14, WeightKg = 22.4, PhotoPath = "/seed/catches/tuna-1.jpg",     LocationJson = "{\"lat\":-33.9500,\"lng\":152.0833}" },
-                // Port Stephens (bay centre) – Yellowtail Kingfish
+                // Port Stephens (bay centre) ï¿½ Yellowtail Kingfish
                 new() { UserId = users[4].Id, SpeciesId = species[5].Id, CaughtAt = now.AddHours(-20), LengthMeters = 0.95, WeightKg = 9.8,  PhotoPath = "/seed/catches/kingfish-1.jpg", LocationJson = "{\"lat\":-32.7383,\"lng\":152.0917}" },
-                // Broken Bay (Pittwater entrance) – Snapper
+                // Broken Bay (Pittwater entrance) ï¿½ Snapper
                 new() { UserId = users[3].Id, SpeciesId = species[6].Id, CaughtAt = now.AddDays(-4),   LengthMeters = 0.55, WeightKg = 2.6,  PhotoPath = "/seed/catches/snapper-1.jpg",  LocationJson = "{\"lat\":-33.5617,\"lng\":151.3250}" },
-                // Botany Bay (bay centre, in water) – Dusky Flathead
+                // Botany Bay (bay centre, in water) ï¿½ Dusky Flathead
                 new() { UserId = users[4].Id, SpeciesId = species[2].Id, CaughtAt = now.AddDays(-5),   LengthMeters = 0.62, WeightKg = 2.9,  PhotoPath = "/seed/catches/flathead-2.jpg", LocationJson = "{\"lat\":-34.0100,\"lng\":151.2217}" },
-                // Tuggerah Lake (lake centre) – Bream
+                // Tuggerah Lake (lake centre) ï¿½ Bream
                 new() { UserId = users[0].Id, SpeciesId = species[7].Id, CaughtAt = now.AddDays(-6),   LengthMeters = 0.29, WeightKg = 0.7,  PhotoPath = "/seed/catches/bream-2.jpg",    LocationJson = "{\"lat\":-33.3233,\"lng\":151.5117}" },
-                // Clarence River mouth (Yamba) – Murray Cod
+                // Clarence River mouth (Yamba) ï¿½ Murray Cod
                 new() { UserId = users[1].Id, SpeciesId = species[1].Id, CaughtAt = now.AddDays(-7),   LengthMeters = 0.78, WeightKg = 6.1,  PhotoPath = "/seed/catches/cod-2.jpg",      LocationJson = "{\"lat\":-29.4367,\"lng\":153.3617}" }
             };
 
