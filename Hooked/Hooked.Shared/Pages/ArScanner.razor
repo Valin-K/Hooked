@@ -1,12 +1,14 @@
 @page "/arscanner"
 @using Hooked.Shared.Services
 @using Hooked.Shared.Services.AI
+@using Hooked.Shared.Services.Camera
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
 @inject IFishDexService FishDexService
 @inject ISocialService SocialService
 @inject IGeminiFishSpeciesService GeminiService
 @inject ILocationService LocationService
+@inject IPhotoCaptureService PhotoCaptureService
 @inject NavigationManager NavigationManager
 
 <PageTitle>AI Scanner</PageTitle>
@@ -17,10 +19,43 @@
     <section class="ocean-glass scanner-card">
         <div class="badge-pill">Camera + AI</div>
         <h1>Scan and log your catch</h1>
-        <p class="muted">Identify the species, update your FishDex, and unlock new entries as you catch them.</p>
+        <p class="muted">Use your camera first for the best scan quality, or upload from your gallery.</p>
 
-        <label class="scanner-field-label">Fish photo</label>
-        <InputFile OnChange="HandlePhotoSelectedAsync" accept="image/*" capture="environment" disabled="@_isScanning" />
+        @if (string.IsNullOrWhiteSpace(_photoPreviewUrl))
+        {
+            <div class="scanner-photo-layout">
+                <button class="action primary scanner-capture"
+                        type="button"
+                        disabled="@_isScanning"
+                        @onclick="CapturePhotoAsync">
+                    📷 Take Photo
+                </button>
+                
+                <div class="scanner-divider">
+                    <span>or</span>
+                </div>
+
+                <label class="action secondary scanner-upload" for="scanner-photo-input">
+                    Upload from gallery
+                </label>
+                <InputFile id="scanner-photo-input"
+                           class="scanner-file-input"
+                           OnChange="HandlePhotoSelectedAsync"
+                           accept="image/*"
+                           disabled="@_isScanning" />
+            </div>
+        }
+        else
+        {
+            <div class="scanner-preview-wrap">
+                <img src="@_photoPreviewUrl"
+                     alt="Selected fish photo preview"
+                     class="scanner-preview-image" />
+                <button type="button" class="scanner-clear-btn" @onclick="ClearPhoto" disabled="@_isScanning">
+                    ✖ Clear
+                </button>
+            </div>
+        }
 
         <label class="scanner-field-label" for="fish-length-input">Fish length (meters)</label>
         <input id="fish-length-input"
@@ -75,6 +110,10 @@
         <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
             <h2>New global species discovered</h2>
             <p>@_speciesName has been added to the community FishDex.</p>
+            @if (!string.IsNullOrWhiteSpace(_environmentalImpactMessage))
+            {
+                <p class="scanner-environmental-msg"><strong>Impact:</strong> @_environmentalImpactMessage</p>
+            }
             <button class="action primary" type="button" @onclick="CloseGlobalDiscoveryPopup">Awesome</button>
         </div>
     </div>
@@ -86,6 +125,10 @@
         <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
             <h2>New FishDex unlock</h2>
             <p>You caught @_speciesName for the first time and unlocked it in your FishDex.</p>
+            @if (!string.IsNullOrWhiteSpace(_environmentalImpactMessage))
+            {
+                <p class="scanner-environmental-msg"><strong>Impact:</strong> @_environmentalImpactMessage</p>
+            }
             <button class="action primary" type="button" @onclick="CloseUnlockPopup">Nice</button>
         </div>
     </div>
@@ -97,6 +140,10 @@
         <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
             <h2>Personal best</h2>
             <p>That's your biggest @_speciesName yet.</p>
+            @if (!string.IsNullOrWhiteSpace(_environmentalImpactMessage))
+            {
+                <p class="scanner-environmental-msg"><strong>Impact:</strong> @_environmentalImpactMessage</p>
+            }
             <button class="action primary" type="button" @onclick="ClosePersonalBestPopup">Keep fishing</button>
         </div>
     </div>
@@ -116,7 +163,9 @@
 @code {
     private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
 
-    private IBrowserFile? _selectedPhoto;
+    private byte[]? _photoBytes;
+    private string? _photoMimeType;
+    private string? _photoPreviewUrl;
     private bool _isScanning;
     private string? _speciesName;
     private string? _generatedFishImageUrl;
@@ -130,16 +179,113 @@
     private bool _showEnvironmentalPopup;
     private string? _environmentalImpactMessage;
 
-    private Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
+    private async Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
-        _selectedPhoto = eventArgs.File;
-        _canScan = _selectedPhoto is not null;
-        _errorMessage = null;
-        _statusMessage = _selectedPhoto is null
-            ? "No photo selected."
-            : "Ready to scan your catch.";
+        var selectedFile = eventArgs.File;
+        if (selectedFile is null)
+        {
+            _statusMessage = "No photo selected.";
+            return;
+        }
 
-        return Task.CompletedTask;
+        try
+        {
+            await using var stream = selectedFile.OpenReadStream(MaxPhotoSizeBytes);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            if (memoryStream.Length == 0)
+            {
+                _errorMessage = "No photo data was found.";
+                _statusMessage = null;
+                return;
+            }
+
+            var mimeType = string.IsNullOrWhiteSpace(selectedFile.ContentType)
+                ? "image/jpeg"
+                : selectedFile.ContentType;
+
+            SetSelectedPhoto(memoryStream.ToArray(), mimeType, "Photo uploaded. Ready to scan your catch.");
+        }
+        catch (IOException)
+        {
+            _errorMessage = "Photo must be smaller than 10 MB.";
+            _statusMessage = null;
+        }
+    }
+
+    private async Task CapturePhotoAsync()
+    {
+        if (_isScanning)
+        {
+            return;
+        }
+
+        _errorMessage = null;
+        _statusMessage = "Opening camera...";
+
+        try
+        {
+            var capturedPhoto = await PhotoCaptureService.CapturePhotoAsync();
+
+            if (capturedPhoto is null)
+            {
+                _statusMessage = "Camera capture canceled.";
+                return;
+            }
+
+            if (capturedPhoto.Bytes.Length == 0)
+            {
+                _errorMessage = "No photo data was found.";
+                _statusMessage = null;
+                return;
+            }
+
+            if (capturedPhoto.Bytes.Length > MaxPhotoSizeBytes)
+            {
+                _errorMessage = "Photo must be smaller than 10 MB.";
+                _statusMessage = null;
+                return;
+            }
+
+            SetSelectedPhoto(capturedPhoto.Bytes, capturedPhoto.MimeType, "Photo captured. Ready to scan your catch.");
+        }
+        catch (OperationCanceledException)
+        {
+            _statusMessage = "Camera capture canceled.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Unable to capture a photo from the camera."
+                : ex.Message;
+            _statusMessage = null;
+        }
+        catch (NotSupportedException ex)
+        {
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Unable to capture a photo from the camera."
+                : ex.Message;
+            _statusMessage = null;
+        }
+    }
+
+    private void SetSelectedPhoto(byte[] photoBytes, string mimeType, string readyMessage)
+    {
+        _photoBytes = photoBytes;
+        _photoMimeType = string.IsNullOrWhiteSpace(mimeType) ? "image/jpeg" : mimeType;
+        _photoPreviewUrl = $"data:{_photoMimeType};base64,{Convert.ToBase64String(_photoBytes)}";
+        _canScan = true;
+        _errorMessage = null;
+        _statusMessage = readyMessage;
+
+        _speciesName = null;
+        _generatedFishImageUrl = null;
+        _showGlobalDiscoveryPopup = false;
+        _showUnlockPopup = false;
+        _showPersonalBestPopup = false;
+        _showEnvironmentalPopup = false;
+        _environmentalImpactMessage = null;
     }
 
     private void OnLengthChanged(ChangeEventArgs eventArgs)
@@ -149,7 +295,7 @@
 
     private async Task ScanAndLogAsync()
     {
-        if (_isScanning || _selectedPhoto is null)
+        if (_isScanning || _photoBytes is null)
         {
             return;
         }
@@ -166,21 +312,6 @@
 
         try
         {
-            var mimeType = string.IsNullOrWhiteSpace(_selectedPhoto.ContentType)
-                ? "image/jpeg"
-                : _selectedPhoto.ContentType;
-
-            await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-
-            if (memoryStream.Length == 0)
-            {
-                _errorMessage = "No photo data was found.";
-                _statusMessage = null;
-                return;
-            }
-
             var location = await LocationService.GetCurrentLocationAsync();
             var locationJson = location != null 
                 ? System.Text.Json.JsonSerializer.Serialize(new { lat = location.Latitude, lon = location.Longitude, desc = location.Description })
@@ -188,8 +319,8 @@
 
             var currentUser = await SocialService.ResolveCurrentUserAsync();
             var scanRequest = new FishScanLogRequestDto(
-                memoryStream.ToArray(),
-                mimeType,
+                _photoBytes,
+                _photoMimeType ?? "image/jpeg",
                 ParseLengthMeters(),
                 null,
                 null,
@@ -201,7 +332,7 @@
             _statusMessage = "Catch logged and FishDex updated.";
 
             _showGlobalDiscoveryPopup = scanResult.IsNewGlobalSpecies;
-            _showUnlockPopup = scanResult.IsFirstCatchForUser;
+            _showUnlockPopup = scanResult.IsFirstCatchForUser && !scanResult.IsNewGlobalSpecies;
             _showPersonalBestPopup = !scanResult.IsFirstCatchForUser && scanResult.IsNewPersonalBest;
 
             if (scanResult.WasImageGenerated)
@@ -214,10 +345,21 @@
                 _environmentalImpactMessage = await GeminiService.GetEnvironmentalImpactAsync(_speciesName, scanRequest.LengthMeters, locationJson);
                 if (!string.IsNullOrWhiteSpace(_environmentalImpactMessage))
                 {
-                    _showEnvironmentalPopup = true;
+                    if (!_showGlobalDiscoveryPopup && !_showUnlockPopup && !_showPersonalBestPopup)
+                    {
+                        _showEnvironmentalPopup = true;
+                    }
                 }
             } 
-            catch (Exception ex) 
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine($"Error getting environmental impact: {ex.Message}");
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"Error getting environmental impact: {ex.Message}");
+            }
+            catch (System.Text.Json.JsonException ex)
             {
                 // In case getting environmental impact fails, we shouldn't fail the whole catch process.
                 Console.WriteLine($"Error getting environmental impact: {ex.Message}");
@@ -226,11 +368,6 @@
         catch (OperationCanceledException)
         {
             _errorMessage = "Photo processing was canceled.";
-            _statusMessage = null;
-        }
-        catch (IOException)
-        {
-            _errorMessage = "Photo must be smaller than 10 MB.";
             _statusMessage = null;
         }
         catch (InvalidOperationException ex)
@@ -271,6 +408,18 @@
         }
 
         throw new InvalidOperationException("Fish length must be a positive number in meters.");
+    }
+
+    private void ClearPhoto()
+    {
+        _photoBytes = null;
+        _photoMimeType = null;
+        _photoPreviewUrl = null;
+        _canScan = false;
+        _errorMessage = null;
+        _statusMessage = null;
+        _speciesName = null;
+        _generatedFishImageUrl = null;
     }
 
     private void GoToFishDex()
