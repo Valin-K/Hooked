@@ -16,22 +16,26 @@ namespace Hooked.Shared.Services
         private readonly IGeminiFishSpeciesService _geminiFishSpeciesService;
         private readonly ILeonardoFishImageService _leonardoFishImageService;
         private readonly IAchievementService _achievementService;
+        private readonly ICatchService _catchService;
 
         public FishDexService(
             HookedDbContext db,
             IGeminiFishSpeciesService geminiFishSpeciesService,
             ILeonardoFishImageService leonardoFishImageService,
-            IAchievementService achievementService)
+            IAchievementService achievementService,
+            ICatchService catchService)
         {
             ArgumentNullException.ThrowIfNull(db);
             ArgumentNullException.ThrowIfNull(geminiFishSpeciesService);
             ArgumentNullException.ThrowIfNull(leonardoFishImageService);
             ArgumentNullException.ThrowIfNull(achievementService);
+            ArgumentNullException.ThrowIfNull(catchService);
 
             _db = db;
             _geminiFishSpeciesService = geminiFishSpeciesService;
             _leonardoFishImageService = leonardoFishImageService;
             _achievementService = achievementService;
+            _catchService = catchService;
         }
 
         public async Task<FishScanLogResultDto> ScanAndLogCatchAsync(Guid userId, FishScanLogRequestDto request, CancellationToken cancellationToken = default)
@@ -103,24 +107,16 @@ namespace Hooked.Shared.Services
                 }
             }
 
-            var activeSession = await _db.FishingSessions
-                .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive, cancellationToken)
-                .ConfigureAwait(false);
-
             var now = DateTime.UtcNow;
-            var catchRecord = new CatchRecord
-            {
-                UserId = userId,
-                SpeciesId = fishSpecies.Id,
-                CaughtAt = now,
-                LengthMeters = request.LengthMeters,
-                WeightKg = request.WeightKg,
-                PhotoPath = request.PhotoPath,
-                LocationJson = request.LocationJson,
-                FishingSessionId = activeSession?.Id
-            };
-
-            _db.CatchRecords.Add(catchRecord);
+            var catchId = await _catchService.AddCatchAsync(
+                    userId,
+                    fishSpecies.Id,
+                    request.LengthMeters,
+                    request.WeightKg,
+                    request.PhotoPath,
+                    request.LocationJson,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             var fishDexEntry = await _db.FishDexEntries
                 .FirstOrDefaultAsync(fd => fd.UserId == userId && fd.SpeciesId == fishSpecies.Id, cancellationToken)
@@ -138,7 +134,7 @@ namespace Hooked.Shared.Services
                     UnlockedAt = now,
                     CatchCount = 1,
                     PersonalBestLengthMeters = request.LengthMeters,
-                    PersonalBestCatch = catchRecord,
+                    PersonalBestCatchId = catchId,
                     IsRare = fishSpecies.IsEndangered
                 };
 
@@ -154,7 +150,7 @@ namespace Hooked.Shared.Services
                         request.LengthMeters.Value > fishDexEntry.PersonalBestLengthMeters.Value)
                     {
                         fishDexEntry.PersonalBestLengthMeters = request.LengthMeters;
-                        fishDexEntry.PersonalBestCatch = catchRecord;
+                        fishDexEntry.PersonalBestCatchId = catchId;
                         isNewPersonalBest = true;
                     }
                 }
@@ -167,7 +163,7 @@ namespace Hooked.Shared.Services
                 .ConfigureAwait(false);
 
             return new FishScanLogResultDto(
-                catchRecord.Id,
+                catchId,
                 fishSpecies.Id,
                 fishSpecies.CommonName,
                 fishSpecies.IllustrationImageUrl,

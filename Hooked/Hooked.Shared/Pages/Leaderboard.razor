@@ -12,6 +12,7 @@
             <select class="filter-select" @bind="metric" @bind:after="OnMetricChanged">
                 <option value="@LeaderboardMetric.MostCaught">Most Caught</option>
                 <option value="@LeaderboardMetric.LargestFish">Largest Fish</option>
+                <option value="@LeaderboardMetric.TotalXp">XP</option>
             </select>
         </div>
         <div class="filter-dropdown">
@@ -34,14 +35,7 @@
     else if (_rows.Count == 0)
     {
         <section class="lb-state ocean-glass">
-            @if (scope == LeaderboardScope.Friends)
-            {
-                <span>No friends data yet � follow some anglers to see them here.</span>
-            }
-            else
-            {
-                <span>No catches recorded yet. Be the first on the board!</span>
-            }
+            <span>@EmptyStateMessage</span>
         </section>
     }
     else
@@ -78,7 +72,21 @@
     private bool _isLoading = true;
     private string? _loadError;
 
-    private string ScoreLabel => metric == LeaderboardMetric.MostCaught ? "catches" : "metres";
+    private string ScoreLabel => metric switch
+    {
+        LeaderboardMetric.MostCaught => "catches",
+        LeaderboardMetric.LargestFish => "metres",
+        LeaderboardMetric.TotalXp => "total xp",
+        _ => "score"
+    };
+
+    private string EmptyStateMessage => (metric, scope) switch
+    {
+        (LeaderboardMetric.TotalXp, LeaderboardScope.Friends) => "No friends XP yet - follow some anglers to see them here.",
+        (LeaderboardMetric.TotalXp, _) => "No XP recorded yet. Be the first on the board!",
+        (_, LeaderboardScope.Friends) => "No friends data yet - follow some anglers to see them here.",
+        _ => "No catches recorded yet. Be the first on the board!"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -145,9 +153,13 @@
     }
 
     private string FormatScore(double score) =>
-        metric == LeaderboardMetric.MostCaught
-            ? ((int)score).ToString("N0")
-            : $"{score:F2} m";
+        metric switch
+        {
+            LeaderboardMetric.MostCaught => ((int)score).ToString("N0"),
+            LeaderboardMetric.LargestFish => $"{score:F2} m",
+            LeaderboardMetric.TotalXp => $"{(int)Math.Round(score):N0} XP",
+            _ => score.ToString("N0")
+        };
 
     private static string GetProfileLink(string username)
         => $"/profile/{Uri.EscapeDataString(username)}";

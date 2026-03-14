@@ -413,7 +413,8 @@ namespace Hooked.Shared.Services
                     c.LocationJson,
                     c.Reactions.Count(),
                     c.Comments.Count(),
-                    c.Reactions.Any(r => r.UserId == viewerUserId)))
+                    c.Reactions.Any(r => r.UserId == viewerUserId),
+                    c.UserId == viewerUserId && c.IsFavorite))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
@@ -464,6 +465,7 @@ namespace Hooked.Shared.Services
                     c.ReactionCount,
                     c.CommentCount,
                     c.ViewerHasReacted,
+                    c.IsFavorite,
                     commentsByCatch.TryGetValue(c.CatchId, out var comments) ? comments : Array.Empty<SocialCommentDto>()))
                 .ToList();
         }
@@ -500,7 +502,8 @@ namespace Hooked.Shared.Services
             string? LocationJson,
             int ReactionCount,
             int CommentCount,
-            bool ViewerHasReacted);
+            bool ViewerHasReacted,
+            bool IsFavorite);
 
         private sealed record FeedCommentProjection(
             Guid Id,
