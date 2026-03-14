@@ -58,6 +58,8 @@ namespace Hooked.Shared.Data
                 return false;
             }
 
+            await SeedAchievementsAsync(cancellationToken).ConfigureAwait(false);
+
             var now = DateTime.UtcNow;
             var users = new List<User>
             {
@@ -208,6 +210,33 @@ namespace Hooked.Shared.Data
 
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return true;
+        }
+
+        private async Task SeedAchievementsAsync(CancellationToken cancellationToken)
+        {
+            if (await _dbContext.Achievements.AnyAsync(cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            _dbContext.Achievements.AddRange(
+                new Achievement { Key = "first-catch",      Title = "First Cast",         Description = "Log your very first catch.",                          CreatedAt = now },
+                new Achievement { Key = "catch-5",          Title = "On the Hook",         Description = "Log 5 catches.",                                      CreatedAt = now },
+                new Achievement { Key = "catch-25",         Title = "Dedicated Angler",    Description = "Log 25 catches.",                                     CreatedAt = now },
+                new Achievement { Key = "catch-100",        Title = "Master Angler",       Description = "Log 100 catches.",                                    CreatedAt = now },
+                new Achievement { Key = "species-3",        Title = "Species Explorer",    Description = "Unlock 3 species in your FishDex.",                   CreatedAt = now },
+                new Achievement { Key = "species-10",       Title = "Species Hunter",      Description = "Unlock 10 species in your FishDex.",                  CreatedAt = now },
+                new Achievement { Key = "fishdex-complete", Title = "FishDex Master",      Description = "Complete the entire FishDex.",                        CreatedAt = now },
+                new Achievement { Key = "big-catch",        Title = "Trophy Fish",         Description = "Catch a fish over 1 metre long.",                     CreatedAt = now },
+                new Achievement { Key = "personal-best",    Title = "New Record",          Description = "Set a personal best length for any species.",         CreatedAt = now },
+                new Achievement { Key = "global-discovery", Title = "Pioneer",             Description = "Discover a species new to the global FishDex.",       CreatedAt = now },
+                new Achievement { Key = "session-complete", Title = "Gone Fishin'",        Description = "Complete your first fishing session.",                 CreatedAt = now },
+                new Achievement { Key = "session-3",        Title = "Regular Outing",      Description = "Complete 3 fishing sessions.",                        CreatedAt = now },
+                new Achievement { Key = "social-butterfly", Title = "Social Angler",       Description = "Follow 3 or more fellow anglers.",                    CreatedAt = now }
+            );
+
+            await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }
