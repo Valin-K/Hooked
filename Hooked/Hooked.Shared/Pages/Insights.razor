@@ -1,8 +1,7 @@
 @page "/insights"
 @using Hooked.Shared.Services
-@using Microsoft.JSInterop
 @inject IInsightsService InsightsService
-@inject IJSRuntime JS
+@inject ILocationService LocationService
 
 <PageTitle>Insights · Hooked</PageTitle>
 
@@ -294,7 +293,7 @@
         </div>
     </section>
 
-    <bottom-nav />
+    <BottomNav />
 </div>
 
 @code {
@@ -330,14 +329,14 @@
         _locState = LocState.Requesting;
         StateHasChanged();
 
-        try
+        var location = await LocationService.GetCurrentLocationAsync();
+        if (location is not null)
         {
-            var pos = await JS.InvokeAsync<GeoPosition>("hookedGeo.getPosition");
-            _lat = pos.Lat;
-            _lng = pos.Lng;
+            _lat = location.Latitude;
+            _lng = location.Longitude;
             await LoadConditionsAsync();
         }
-        catch
+        else
         {
             _locState = LocState.Denied;
             StateHasChanged();
@@ -461,12 +460,12 @@
         return bucket switch
         {
             0 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>""",
-            1 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="2" y1="18" x2="4" y2="18"/><line x1="20" y1="18" x2="22" y2="18"/><line x1="19.78" y1="10.22" x2="18.36" y2="11.64"/><line x1="15.73" y1="4.27" x2="14.31" y2="5.69"/><line x1="8.27" y1="4.27" x2="9.69" y2="5.69"/></svg>""",
-            2 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15h18"/><path d="M6 11a4 4 0 0 1 8 0c0 .34-.04.67-.1 1H18a3 3 0 0 1 0 6H6a5 5 0 0 1 0-10c.34 0 .67.04 1 .1"/></svg>""",
-            3 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>""",
-            4 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"/><path d="M3 14h18"/></svg>""",
-            5 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M13 19v3"/><path d="M9 19v3"/><path d="M17 19v3"/></svg>""",
-            _ => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M13 19l-2 3"/><path d="M9 19l-2 3"/><path d="M17 19l-2 3"/><path d="m14.5 14-5 5"/></svg>"""
+            1 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="2" y1="18" x2="4" y2="18"/><line x1="20" y1="18" x2="22" y2="18"/><line x1="19.78" y1="10.22" x2="18.36" y2="11.64"/><line x1="15.73" y1="4.27" x2="14.31" y2="5.69"/><line x1="8.27" y1="4.27" x2="9.69" y2="5.69"/></svg>""",
+            2 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15h18"/><path d="M6 11a4 4 0 0 1 8 0c0 .34-.04.67-.1 1H18a3 3 0 0 1 0 6H6a5 5 0 0 1 0-10c.34 0 .67.04 1 .1"/></svg>""",
+            3 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>""",
+            4 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"/><path d="M3 14h18"/></svg>""",
+            5 => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M13 19v3"/><path d="M9 19v3"/><path d="M17 19v3"/></svg>""",
+            _ => """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M13 19l-2 3"/><path d="M9 19l-2 3"/><path d="M17 19l-2 3"/><path d="m14.5 14-5 5"/></svg>"""
         };
     }
 
@@ -518,11 +517,5 @@
         }
         if (inList) sb.Append("</ul>");
         return sb.ToString();
-    }
-
-    private sealed class GeoPosition
-    {
-        public double Lat { get; set; }
-        public double Lng { get; set; }
     }
 }
