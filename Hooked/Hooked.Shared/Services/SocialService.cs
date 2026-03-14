@@ -288,7 +288,77 @@ namespace Hooked.Shared.Services
                 commenter.Username,
                 commenter.DisplayName,
                 comment.CommentText,
-                comment.CommentedAt);
+                comment.CommentedAt,
+                comment.EditedAt);
+        }
+
+        public async Task<SocialCommentDto> EditCommentAsync(Guid commentId, Guid requestingUserId, string newText, CancellationToken cancellationToken = default)
+        {
+            if (commentId == Guid.Empty)
+            {
+                throw new ArgumentException("Comment ID is required.", nameof(commentId));
+            }
+
+            if (requestingUserId == Guid.Empty)
+            {
+                throw new ArgumentException("User ID is required.", nameof(requestingUserId));
+            }
+
+            if (string.IsNullOrWhiteSpace(newText))
+            {
+                throw new ArgumentException("Comment text is required.", nameof(newText));
+            }
+
+            var sanitized = newText.Trim();
+            if (sanitized.Length > 500)
+            {
+                throw new ArgumentException("Comment text cannot exceed 500 characters.", nameof(newText));
+            }
+
+            var comment = await _db.CatchComments
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.Id == commentId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"Comment '{commentId}' was not found.");
+
+            if (comment.UserId != requestingUserId)
+            {
+                throw new UnauthorizedAccessException("You can only edit your own comments.");
+            }
+
+            comment.CommentText = sanitized;
+            comment.EditedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            var username = comment.User?.Username ?? string.Empty;
+            var displayName = comment.User?.DisplayName;
+            return new SocialCommentDto(comment.Id, comment.CatchId, comment.UserId, username, displayName, comment.CommentText, comment.CommentedAt, comment.EditedAt);
+        }
+
+        public async Task DeleteCommentAsync(Guid commentId, Guid requestingUserId, CancellationToken cancellationToken = default)
+        {
+            if (commentId == Guid.Empty)
+            {
+                throw new ArgumentException("Comment ID is required.", nameof(commentId));
+            }
+
+            if (requestingUserId == Guid.Empty)
+            {
+                throw new ArgumentException("User ID is required.", nameof(requestingUserId));
+            }
+
+            var comment = await _db.CatchComments
+                .FirstOrDefaultAsync(c => c.Id == commentId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"Comment '{commentId}' was not found.");
+
+            if (comment.UserId != requestingUserId)
+            {
+                throw new UnauthorizedAccessException("You can only delete your own comments.");
+            }
+
+            _db.CatchComments.Remove(comment);
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<SocialProfileSummaryDto> BuildProfileSummaryAsync(User user, Guid? viewerUserId, CancellationToken cancellationToken)
@@ -363,7 +433,8 @@ namespace Hooked.Shared.Services
                     c.User != null ? c.User.Username : string.Empty,
                     c.User != null ? c.User.DisplayName : null,
                     c.CommentText,
-                    c.CommentedAt))
+                    c.CommentedAt,
+                    c.EditedAt))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
@@ -374,7 +445,7 @@ namespace Hooked.Shared.Services
                     g => (IReadOnlyList<SocialCommentDto>)g
                         .Take(3)
                         .OrderBy(c => c.CommentedAt)
-                        .Select(c => new SocialCommentDto(c.Id, c.CatchId, c.UserId, c.Username, c.DisplayName, c.CommentText, c.CommentedAt))
+                        .Select(c => new SocialCommentDto(c.Id, c.CatchId, c.UserId, c.Username, c.DisplayName, c.CommentText, c.CommentedAt, c.EditedAt))
                         .ToList());
 
             return catches
@@ -438,6 +509,7 @@ namespace Hooked.Shared.Services
             string Username,
             string? DisplayName,
             string CommentText,
-            DateTime CommentedAt);
+            DateTime CommentedAt,
+            DateTime? EditedAt);
     }
 }

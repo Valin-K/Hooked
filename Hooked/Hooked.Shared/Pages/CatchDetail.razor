@@ -1,0 +1,406 @@
+@page "/fish/{Id:guid}"
+@using Hooked.Shared.Services
+@inject ISocialService SocialService
+@inject ICatchService CatchService
+@inject NavigationManager Navigation
+
+<PageTitle>@(_detail?.SpeciesCommonName ?? "Catch Detail")</PageTitle>
+
+<div class="mobile-shell catch-detail-shell">
+
+    @if (_isLoading)
+    {
+        <section class="detail-state ocean-glass">Loading catch…</section>
+    }
+    else if (_detail is null)
+    {
+        <section class="detail-state ocean-glass error">Catch not found.</section>
+    }
+    else
+    {
+        <header class="detail-header ocean-glass">
+            <button class="back-btn" type="button" @onclick="GoBack">
+                <AppIcon Name="chevron-left" Size="18" /> Back
+            </button>
+            <div class="detail-header-title">@_detail.SpeciesCommonName</div>
+        </header>
+
+        <section class="detail-hero ocean-glass">
+            @if (!string.IsNullOrWhiteSpace(_detail.SpeciesIllustrationUrl))
+            {
+                <img src="@_detail.SpeciesIllustrationUrl" alt="@_detail.SpeciesCommonName" class="hero-illustration" />
+            }
+            else
+            {
+                <div class="hero-illustration hero-placeholder">
+                    <AppIcon Name="fish" Size="64" />
+                </div>
+            }
+
+            <div class="hero-body">
+                <h1 class="hero-common-name">@_detail.SpeciesCommonName</h1>
+                @if (!string.IsNullOrWhiteSpace(_detail.SpeciesScientificName))
+                {
+                    <div class="hero-scientific">@_detail.SpeciesScientificName</div>
+                }
+
+                <div class="hero-badges">
+                    @if (!string.IsNullOrWhiteSpace(_detail.ConservationStatus))
+                    {
+                        <span class="badge conservation">@_detail.ConservationStatus</span>
+                    }
+                    @if (_detail.IsEndangered)
+                    {
+                        <span class="badge endangered">⚠ Endangered</span>
+                    }
+                    @if (_detail.IsInvasive)
+                    {
+                        <span class="badge invasive">⚡ Invasive</span>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <section class="detail-card ocean-glass">
+            <div class="detail-card-title">Catch Info</div>
+            <div class="detail-metrics">
+                <div class="metric-item">
+                    <div class="metric-label">Caught by</div>
+                    <a class="metric-value author-link" href="/profile/@Uri.EscapeDataString(_detail.Username)">
+                        @(_detail.DisplayName ?? _detail.Username) <span class="muted">(@("@" + _detail.Username))</span>
+                    </a>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Date &amp; Time</div>
+                    <div class="metric-value">@_detail.CaughtAt.ToLocalTime().ToString("MMMM d, yyyy • h:mm tt")</div>
+                </div>
+                @if (_detail.LengthMeters.HasValue)
+                {
+                    <div class="metric-item">
+                        <div class="metric-label">Length</div>
+                        <div class="metric-value">@($"{_detail.LengthMeters.Value:F2} m")</div>
+                    </div>
+                }
+                @if (_detail.WeightKg.HasValue)
+                {
+                    <div class="metric-item">
+                        <div class="metric-label">Weight</div>
+                        <div class="metric-value">@($"{_detail.WeightKg.Value:F2} kg")</div>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_detail.LocationJson))
+                {
+                    <div class="metric-item">
+                        <div class="metric-label">Location</div>
+                        <div class="metric-value location-value">
+                            <AppIcon Name="map-pin" Size="14" /> @FormatLocation(_detail.LocationJson)
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(_detail.PhotoPath))
+        {
+            <section class="detail-card ocean-glass">
+                <div class="detail-card-title">Photo</div>
+                <img src="@_detail.PhotoPath" alt="Catch photo" class="catch-photo" />
+            </section>
+        }
+
+        <section class="detail-card ocean-glass">
+            <div class="interaction-row">
+                <button class="reaction-btn @(_detail.ViewerHasReacted ? "reacted" : string.Empty)"
+                        type="button"
+                        disabled="@_reactionBusy"
+                        @onclick="ToggleReactionAsync">
+                    <AppIcon Name='@(_detail.ViewerHasReacted ? "heart-filled" : "heart")' Size="16" />
+                    <span>@_detail.ReactionCount</span>
+                </button>
+                <div class="comment-count-label">@($"{_detail.Comments.Count} comments")</div>
+            </div>
+        </section>
+
+        <section class="detail-card ocean-glass comments-section">
+            <div class="detail-card-title">Comments</div>
+
+            @if (_detail.Comments.Count == 0)
+            {
+                <div class="comment-empty">No comments yet. Be the first!</div>
+            }
+            else
+            {
+                @foreach (var comment in _detail.Comments)
+                {
+                    var isOwn = comment.UserId == _currentUserId;
+                    var isEditing = _editingCommentId == comment.Id;
+
+                    <div class="comment-row">
+                        <div class="comment-meta-row">
+                            <a href="/profile/@Uri.EscapeDataString(comment.Username)" class="comment-author">@("@" + comment.Username)</a>
+                            <span class="comment-time">
+                                @comment.CommentedAt.ToLocalTime().ToString("MMM d, h:mm tt")
+                                @if (comment.EditedAt.HasValue)
+                                {
+                                    <span class="edited-badge">edited</span>
+                                }
+                            </span>
+                        </div>
+
+                        @if (isEditing)
+                        {
+                            <div class="comment-edit-form">
+                                <textarea class="comment-edit-input"
+                                          maxlength="500"
+                                          @bind="_editDraft"
+                                          @bind:event="oninput"></textarea>
+                                <div class="comment-edit-actions">
+                                    <button class="comment-action-btn save"
+                                            type="button"
+                                            disabled="@(_editBusy || string.IsNullOrWhiteSpace(_editDraft))"
+                                            @onclick="() => SaveEditAsync(comment.Id)">Save</button>
+                                    <button class="comment-action-btn cancel"
+                                            type="button"
+                                            @onclick="CancelEdit">Cancel</button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="comment-text">@comment.CommentText</span>
+                        }
+
+                        @if (isOwn && !isEditing)
+                        {
+                            <div class="comment-owner-actions">
+                                <button class="comment-action-btn edit"
+                                        type="button"
+                                        @onclick="() => StartEdit(comment.Id, comment.CommentText)">Edit</button>
+                                <button class="comment-action-btn delete"
+                                        type="button"
+                                        disabled="@(_deleteBusyCommentId == comment.Id)"
+                                        @onclick="() => DeleteCommentAsync(comment.Id)">Delete</button>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+
+            @if (_actionError is not null)
+            {
+                <div class="action-error">@_actionError</div>
+            }
+
+            <div class="comment-form">
+                <input class="comment-input"
+                       maxlength="500"
+                       placeholder="Add a comment…"
+                       @bind="_commentDraft"
+                       @bind:event="oninput" />
+                <button class="comment-submit"
+                        type="button"
+                        disabled="@(_commentBusy || string.IsNullOrWhiteSpace(_commentDraft))"
+                        @onclick="SubmitCommentAsync">
+                    Post
+                </button>
+            </div>
+        </section>
+    }
+
+    <BottomNav />
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private CatchDetailDto? _detail;
+    private Guid _currentUserId = Guid.Empty;
+    private bool _isLoading = true;
+    private bool _reactionBusy;
+    private bool _commentBusy;
+    private string _commentDraft = string.Empty;
+    private string? _actionError;
+
+    private Guid? _editingCommentId;
+    private string _editDraft = string.Empty;
+    private bool _editBusy;
+    private Guid? _deleteBusyCommentId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var currentUser = await SocialService.ResolveCurrentUserAsync();
+            _currentUserId = currentUser.Id;
+            _detail = await CatchService.GetCatchDetailAsync(Id, _currentUserId);
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Unable to load catch: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleReactionAsync()
+    {
+        if (_reactionBusy || _currentUserId == Guid.Empty || _detail is null)
+        {
+            return;
+        }
+
+        _reactionBusy = true;
+        _actionError = null;
+
+        try
+        {
+            var result = await SocialService.ToggleReactionAsync(_detail.CatchId, _currentUserId);
+            _detail = _detail with
+            {
+                ViewerHasReacted = result.IsReacted,
+                ReactionCount = result.ReactionCount
+            };
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Reaction failed: {ex.Message}";
+        }
+        finally
+        {
+            _reactionBusy = false;
+        }
+    }
+
+    private async Task SubmitCommentAsync()
+    {
+        if (_commentBusy || _currentUserId == Guid.Empty || _detail is null)
+        {
+            return;
+        }
+
+        var text = _commentDraft.Trim();
+        if (text.Length == 0)
+        {
+            return;
+        }
+
+        _commentBusy = true;
+        _actionError = null;
+
+        try
+        {
+            var comment = await SocialService.AddCommentAsync(_detail.CatchId, _currentUserId, text);
+            var updatedComments = _detail.Comments.Append(comment).ToList();
+            _detail = _detail with { Comments = updatedComments };
+            _commentDraft = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Comment failed: {ex.Message}";
+        }
+        finally
+        {
+            _commentBusy = false;
+        }
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/feed");
+
+    private void StartEdit(Guid commentId, string currentText)
+    {
+        _editingCommentId = commentId;
+        _editDraft = currentText;
+        _actionError = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingCommentId = null;
+        _editDraft = string.Empty;
+    }
+
+    private async Task SaveEditAsync(Guid commentId)
+    {
+        if (_editBusy || _currentUserId == Guid.Empty || _detail is null)
+        {
+            return;
+        }
+
+        var text = _editDraft.Trim();
+        if (text.Length == 0)
+        {
+            return;
+        }
+
+        _editBusy = true;
+        _actionError = null;
+
+        try
+        {
+            var updated = await SocialService.EditCommentAsync(commentId, _currentUserId, text);
+            var updatedComments = _detail.Comments
+                .Select(c => c.Id == commentId ? updated : c)
+                .ToList();
+            _detail = _detail with { Comments = updatedComments };
+            _editingCommentId = null;
+            _editDraft = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Edit failed: {ex.Message}";
+        }
+        finally
+        {
+            _editBusy = false;
+        }
+    }
+
+    private async Task DeleteCommentAsync(Guid commentId)
+    {
+        if (_deleteBusyCommentId.HasValue || _currentUserId == Guid.Empty || _detail is null)
+        {
+            return;
+        }
+
+        _deleteBusyCommentId = commentId;
+        _actionError = null;
+
+        try
+        {
+            await SocialService.DeleteCommentAsync(commentId, _currentUserId);
+            var updatedComments = _detail.Comments.Where(c => c.Id != commentId).ToList();
+            _detail = _detail with { Comments = updatedComments };
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Delete failed: {ex.Message}";
+        }
+        finally
+        {
+            _deleteBusyCommentId = null;
+        }
+    }
+
+    private static string FormatLocation(string locationJson)
+    {
+        try
+        {
+            var doc = System.Text.Json.JsonDocument.Parse(locationJson);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("name", out var nameProp) && nameProp.GetString() is { Length: > 0 } name)
+            {
+                return name;
+            }
+            if (root.TryGetProperty("lat", out var lat) && root.TryGetProperty("lon", out var lon))
+            {
+                return $"{lat.GetDouble():F4}°, {lon.GetDouble():F4}°";
+            }
+        }
+        catch { /* malformed JSON — fall through */ }
+
+        return "Location recorded";
+    }
+}

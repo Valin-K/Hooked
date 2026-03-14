@@ -3,6 +3,7 @@ using System;
 using Hooked.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hooked.Shared.Migrations
 {
     [DbContext(typeof(HookedDbContext))]
-    partial class HookedDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260314124846_AddCommentEditedAt")]
+    partial class AddCommentEditedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -432,28 +435,6 @@ namespace Hooked.Shared.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Hooked.Shared.Data.UserAchievement", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AchievementId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("EarnedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("UserId", "AchievementId");
-
-                    b.HasIndex("AchievementId");
-
-                    b.HasIndex("EarnedAt");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserAchievements");
-                });
-
             modelBuilder.Entity("Hooked.Shared.Data.CatchComment", b =>
                 {
                     b.HasOne("Hooked.Shared.Data.CatchRecord", "Catch")
@@ -644,30 +625,6 @@ namespace Hooked.Shared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Hooked.Shared.Data.UserAchievement", b =>
-                {
-                    b.HasOne("Hooked.Shared.Data.Achievement", "Achievement")
-                        .WithMany("UserAchievements")
-                        .HasForeignKey("AchievementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hooked.Shared.Data.User", "User")
-                        .WithMany("UserAchievements")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Achievement");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.Achievement", b =>
-                {
-                    b.Navigation("UserAchievements");
-                });
-
             modelBuilder.Entity("Hooked.Shared.Data.CatchRecord", b =>
                 {
                     b.Navigation("Comments");
@@ -711,8 +668,6 @@ namespace Hooked.Shared.Migrations
                     b.Navigation("Posts");
 
                     b.Navigation("Sightings");
-
-                    b.Navigation("UserAchievements");
                 });
 #pragma warning restore 612, 618
         }

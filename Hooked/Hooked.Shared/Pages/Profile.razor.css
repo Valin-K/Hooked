@@ -272,3 +272,67 @@
         width: 100%;
     }
 }
+
+.catch-species-link {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.catch-species-link:hover { text-decoration: underline; }
+
+.view-all-link {
+    color: #64b5f6;
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.view-all-link:hover { text-decoration: underline; }
+
+.comment-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.comment-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.comment-time {
+    font-size: 0.68rem;
+    color: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.edited-badge {
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 3px;
+    padding: 0 0.25rem;
+    line-height: 1.4;
+}
+
+.comment-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #ef5350;
+    padding: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    align-self: flex-start;
+}
+
+.comment-delete-btn:hover { opacity: 0.75; }
+.comment-delete-btn:disabled { opacity: 0.35; cursor: default; }
