@@ -98,5 +98,65 @@ namespace Hooked.Shared.Services.AI
 
             return species;
         }
+
+        public async Task<string> DescribeFishSpeciesAsync(string speciesName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(speciesName))
+            {
+                throw new ArgumentException("Species name is required.", nameof(speciesName));
+            }
+
+            if (_client is null)
+            {
+                throw new InvalidOperationException("Gemini API key is not configured.");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            GenerateContentResponse response;
+
+            try
+            {
+                response = await _client.Models.GenerateContentAsync(
+                    model: ModelName,
+                    contents: new List<Content>
+                    {
+                        new()
+                        {
+                            Parts = new List<Part>
+                            {
+                                new()
+                                {
+                                    Text = $"Describe the physical characteristics, exact natural colors, and fin shape of a '{speciesName}' fish in exactly 20 words or less. Focus strictly on visual anatomy."
+                                }
+                            }
+                        }
+                    }).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests || ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("too many requests", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+
+            var description = response?.Candidates?[0]?.Content?.Parts?[0]?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                throw new InvalidOperationException($"Could not generate a description for the species '{speciesName}'.");
+            }
+
+            return description;
+        }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using Hooked.Shared.Services.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,14 +18,16 @@ namespace Hooked.Shared.Services
             services.AddScoped<ISocialService, SocialService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
             services.AddScoped<IMapService, MapService>();
+
             services.AddSingleton<IGeminiFishSpeciesService>(_ =>
                 new GeminiFishSpeciesService(configuration["Gemini:ApiKey"]));
-            services.AddSingleton<ILeonardoFishImageService>(_ =>
+
+            services.AddSingleton<ILeonardoFishImageService>(sp =>
                 new LeonardoFishImageService(
                     configuration["LeonardoAI:ApiKey"],
-                    configuration["ReferenceImageId"]));
+                    configuration["ReferenceImageId"],
+                    sp.GetRequiredService<IGeminiFishSpeciesService>()));
 
-            // Additional services (leaderboards, stats, AR scanner integration) can be added later
             return services;
         }
     }
