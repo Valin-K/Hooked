@@ -2,6 +2,7 @@
 @page "/profile/{Username}"
 @using Hooked.Shared.Services
 @inject ISocialService SocialService
+@inject IAchievementService AchievementService
 @inject NavigationManager NavigationManager
 
 <PageTitle>@GetPageTitle()</PageTitle>
@@ -74,6 +75,41 @@
                 <p class="muted">@_actionError</p>
             </section>
         }
+
+        <section class="profile-feed">
+            <div class="feed-header">
+                <h2>Achievements</h2>
+            </div>
+
+            @if (_achievements.Count == 0)
+            {
+                <section class="ocean-glass state-card compact-state">
+                    <p class="muted">No achievements yet — get fishing!</p>
+                </section>
+            }
+            else
+            {
+                <div class="achievement-grid">
+                    @foreach (var a in _achievements)
+                    {
+                        <article class="ocean-glass achievement-card @(a.IsEarned ? "earned" : "locked")">
+                            <div class="achievement-icon" aria-hidden="true">@(a.IsEarned ? "🏆" : "🔒")</div>
+                            <div class="achievement-body">
+                                <div class="achievement-title">@a.Title</div>
+                                @if (!string.IsNullOrWhiteSpace(a.Description))
+                                {
+                                    <div class="achievement-desc muted">@a.Description</div>
+                                }
+                                @if (a.IsEarned && a.EarnedAt.HasValue)
+                                {
+                                    <div class="achievement-date muted">Earned @a.EarnedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</div>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
 
         <section class="profile-feed">
             <div class="feed-header">
@@ -166,6 +202,7 @@
     private SocialUserLookupDto? _currentUser;
     private SocialProfileSummaryDto? _profile;
     private List<ProfileCatchItem> _catchItems = [];
+    private List<AchievementStatusDto> _achievements = [];
     private readonly Dictionary<Guid, string> _commentDrafts = [];
     private readonly HashSet<Guid> _reactionBusyCatchIds = [];
     private readonly HashSet<Guid> _commentBusyCatchIds = [];
@@ -192,6 +229,7 @@
         _actionError = null;
         _profile = null;
         _catchItems = [];
+        _achievements = [];
         _commentDrafts.Clear();
         _reactionBusyCatchIds.Clear();
         _commentBusyCatchIds.Clear();
@@ -214,6 +252,7 @@
             {
                 var feedItems = await SocialService.GetUserFeedAsync(_profile.UserId, _currentUser.Id, 25);
                 _catchItems = feedItems.Select(MapFeedItem).ToList();
+                _achievements = (await AchievementService.GetAllWithStatusAsync(_profile.UserId)).ToList();
             }
         }
         catch (Exception ex)

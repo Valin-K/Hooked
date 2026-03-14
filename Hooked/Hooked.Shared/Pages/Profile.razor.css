@@ -203,7 +203,63 @@
     margin-top: 0.8rem;
 }
 
-@media (max-width: 560px) {
+.profile-feed + .profile-feed {
+    margin-top: 1.25rem;
+}
+
+.achievement-grid {
+    margin-top: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.achievement-card {
+    border-radius: 18px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid var(--card-border-accent);
+    transition: opacity 0.2s;
+}
+
+.achievement-card.locked {
+    opacity: 0.45;
+    border-color: var(--surface-muted-border);
+}
+
+.achievement-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+.achievement-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.achievement-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.achievement-desc,
+.achievement-date {
+    font-size: 0.78rem;
+}
+
+@media (min-width: 520px) {
+    .achievement-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+
     .summary-top {
         align-items: flex-start;
     }
