@@ -184,6 +184,35 @@
     background: rgba(255, 255, 255, 0.12);
 }
 
+.xp-week-card {
+    margin-top: 0.85rem;
+    border-radius: 20px;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(151, 234, 255, 0.22);
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.xp-week-heading {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-soft);
+}
+
+.xp-week-value {
+    font-size: 1.28rem;
+    font-weight: 800;
+    color: var(--text-strong);
+}
+
+.xp-week-subheading {
+    font-size: 0.72rem;
+    color: var(--text-soft);
+}
+
 /* ==================================================== */
 /* Recent Catches Compact */
 /* ==================================================== */

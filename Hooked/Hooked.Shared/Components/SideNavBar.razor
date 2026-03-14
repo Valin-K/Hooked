@@ -32,6 +32,7 @@
 
 @code {
     private bool _isDarkMode = true;
+    private bool _isDisposed;
 
     private static readonly IReadOnlyList<NavItem> NavItems =
     [
@@ -52,14 +53,26 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (!firstRender || _isDisposed)
         {
             return;
         }
 
-        var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
-        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
-        StateHasChanged();
+        try
+        {
+            var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
+            _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+            if (!_isDisposed)
+            {
+                StateHasChanged();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task ToggleThemeAsync()
@@ -110,11 +123,23 @@
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        InvokeAsync(StateHasChanged);
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(() =>
+        {
+            if (!_isDisposed)
+            {
+                StateHasChanged();
+            }
+        });
     }
 
     public void Dispose()
     {
+        _isDisposed = true;
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 

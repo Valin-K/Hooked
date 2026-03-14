@@ -19,6 +19,66 @@ namespace Hooked.Web.Api
             });
 
             group.MapGet("/catches/recent", async (ICatchService catchService) => Results.Ok(await catchService.GetRecentCatchesAsync())).WithName("GetRecentCatches");
+            group.MapPost("/catches/favorite", async (ICatchService catchService, SetCatchFavoriteRequest request, CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    var changed = await catchService.SetCatchFavoriteAsync(request.CatchId, request.UserId, request.IsFavorite, cancellationToken).ConfigureAwait(false);
+                    return Results.Ok(new SetCatchFavoriteResponse(request.CatchId, request.IsFavorite, changed));
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    return Results.NotFound(new ErrorResponse(ex.Message));
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+                catch (ArgumentException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+            }).WithName("SetCatchFavorite");
+
+            var quests = group.MapGroup("/quests");
+
+            quests.MapGet("/{userId:guid}", async (IFishingQuestService fishingQuestService, Guid userId, DateTime? asOfUtc, CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    var activeQuests = await fishingQuestService.GetActiveQuestsAsync(userId, asOfUtc, cancellationToken).ConfigureAwait(false);
+                    return Results.Ok(new FishingQuestListResponse(activeQuests));
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    return Results.NotFound(new ErrorResponse(ex.Message));
+                }
+                catch (ArgumentException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+            }).WithName("GetActiveFishingQuests");
+
+            quests.MapPost("/claim", async (IFishingQuestService fishingQuestService, ClaimQuestRewardRequest request, CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    var claimResult = await fishingQuestService.ClaimRewardAsync(request.UserId, request.UserQuestProgressId, cancellationToken).ConfigureAwait(false);
+                    return Results.Ok(new ClaimQuestRewardResponse(claimResult));
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    return Results.NotFound(new ErrorResponse(ex.Message));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+                catch (ArgumentException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+            }).WithName("ClaimFishingQuestReward");
 
             // Admin: force reindex all catches into Elasticsearch
             group.MapPost("/search/reindex", async (
@@ -163,6 +223,11 @@ namespace Hooked.Web.Api
         public sealed record LookupUsersResponse(IReadOnlyList<SocialUserLookupDto> Users);
         public sealed record ProfileSummaryResponse(SocialProfileSummaryDto Profile);
         public sealed record FeedResponse(IReadOnlyList<SocialCatchFeedItemDto> Items);
+        public sealed record SetCatchFavoriteRequest(Guid CatchId, Guid UserId, bool IsFavorite);
+        public sealed record SetCatchFavoriteResponse(Guid CatchId, bool IsFavorite, bool Changed);
+        public sealed record FishingQuestListResponse(IReadOnlyList<FishingQuestProgressDto> Quests);
+        public sealed record ClaimQuestRewardRequest(Guid UserId, Guid UserQuestProgressId);
+        public sealed record ClaimQuestRewardResponse(FishingQuestClaimResultDto Result);
         public sealed record FollowRequest(Guid UserId, Guid TargetUserId);
         public sealed record FollowResponse(bool Success);
         public sealed record ToggleReactionRequest(Guid CatchId, Guid UserId);
