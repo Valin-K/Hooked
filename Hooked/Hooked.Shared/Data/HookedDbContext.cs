@@ -53,6 +53,11 @@ namespace Hooked.Shared.Data
                 b.HasIndex(s => s.CommonName);
                 b.Property(s => s.ScientificName).HasMaxLength(200);
                 b.Property(s => s.CommonName).HasMaxLength(200);
+                b.Property(s => s.IllustrationImageUrl).HasMaxLength(1024);
+                b.HasOne(s => s.DiscoveredByUser)
+                    .WithMany()
+                    .HasForeignKey(s => s.DiscoveredByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<CatchRecord>(b =>
@@ -120,6 +125,7 @@ namespace Hooked.Shared.Data
                 b.HasKey(fd => new { fd.UserId, fd.SpeciesId });
                 b.HasOne(fd => fd.User).WithMany(u => u.FishDexEntries).HasForeignKey(fd => fd.UserId).OnDelete(DeleteBehavior.Cascade);
                 b.HasOne(fd => fd.Species).WithMany(s => s.FishDexEntries).HasForeignKey(fd => fd.SpeciesId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(fd => fd.PersonalBestCatch).WithMany().HasForeignKey(fd => fd.PersonalBestCatchId).OnDelete(DeleteBehavior.SetNull);
                 b.HasIndex(fd => fd.UnlockedAt);
             });
 

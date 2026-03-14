@@ -127,6 +127,54 @@ namespace Hooked.Shared.Data
             _dbContext.CatchReactions.AddRange(reactions);
             _dbContext.CatchComments.AddRange(comments);
 
+            var discoveryBySpecies = catches
+                .GroupBy(c => c.SpeciesId)
+                .Select(group => group
+                    .OrderBy(c => c.CaughtAt)
+                    .ThenBy(c => c.Id)
+                    .First())
+                .ToDictionary(c => c.SpeciesId);
+
+            foreach (var fishSpecies in species)
+            {
+                if (!discoveryBySpecies.TryGetValue(fishSpecies.Id, out var firstCatch))
+                {
+                    continue;
+                }
+
+                fishSpecies.DiscoveredAt = firstCatch.CaughtAt;
+                fishSpecies.DiscoveredByUserId = firstCatch.UserId;
+            }
+
+            var fishDexEntries = catches
+                .GroupBy(c => new { c.UserId, c.SpeciesId })
+                .Select(group =>
+                {
+                    var firstCatch = group
+                        .OrderBy(c => c.CaughtAt)
+                        .ThenBy(c => c.Id)
+                        .First();
+
+                    var personalBestCatch = group
+                        .OrderByDescending(c => c.LengthMeters ?? 0)
+                        .ThenByDescending(c => c.CaughtAt)
+                        .First();
+
+                    return new FishDexEntry
+                    {
+                        UserId = group.Key.UserId,
+                        SpeciesId = group.Key.SpeciesId,
+                        UnlockedAt = firstCatch.CaughtAt,
+                        CatchCount = group.Count(),
+                        PersonalBestLengthMeters = personalBestCatch.LengthMeters,
+                        PersonalBestCatchId = personalBestCatch.Id,
+                        IsRare = false
+                    };
+                })
+                .ToList();
+
+            _dbContext.FishDexEntries.AddRange(fishDexEntries);
+
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }

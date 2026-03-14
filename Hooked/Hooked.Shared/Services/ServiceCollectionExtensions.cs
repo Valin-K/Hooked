@@ -15,6 +15,7 @@ namespace Hooked.Shared.Services
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IFishService, FishService>();
             services.AddScoped<ICatchService, CatchService>();
+            services.AddScoped<IFishDexService, FishDexService>();
             services.AddScoped<ISocialService, SocialService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
             services.AddScoped<IMapService, MapService>();

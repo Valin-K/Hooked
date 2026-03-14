@@ -1,185 +1,259 @@
 @page "/arscanner"
-@using Hooked.Shared.Services.AI
+@using Hooked.Shared.Services
+@using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
-@inject IGeminiFishSpeciesService GeminiFishSpeciesService
-@inject ILeonardoFishImageService LeonardoFishImageService
+@inject IFishDexService FishDexService
+@inject ISocialService SocialService
+@inject NavigationManager NavigationManager
 
 <PageTitle>AI Scanner</PageTitle>
 
-<div class="card">
-    <div class="title">Open AI Scanner</div>
-    <div class="muted">Take or choose a fish photo to identify the species.</div>
+<div class="mobile-shell scanner-shell">
+    <TopNavBar Subtitle="AI Catch Scanner" />
 
-    <div style="margin-top:12px">
-        <InputFile OnChange="ScanFromPhotoAsync" accept="image/*" capture="environment" disabled="@isScanning" />
-    </div>
+    <section class="ocean-glass scanner-card">
+        <div class="badge-pill">Camera + AI</div>
+        <h1>Scan and log your catch</h1>
+        <p class="muted">Identify the species, update your FishDex, and unlock new entries as you catch them.</p>
 
-    @if (isScanning)
-    {
-        <div style="margin-top:12px">Scanning and generating illustration...</div>
-    }
+        <label class="scanner-field-label">Fish photo</label>
+        <InputFile OnChange="HandlePhotoSelectedAsync" accept="image/*" capture="environment" disabled="@_isScanning" />
 
-    @if (!string.IsNullOrWhiteSpace(errorMessage))
-    {
-        <div style="margin-top:12px;color:#ff6b6b">@errorMessage</div>
-    }
+        <label class="scanner-field-label" for="fish-length-input">Fish length (meters)</label>
+        <input id="fish-length-input"
+               class="scanner-input"
+               inputmode="decimal"
+               placeholder="e.g. 0.74"
+               value="@_lengthInputText"
+               @oninput="OnLengthChanged" />
 
-    @if (!string.IsNullOrWhiteSpace(speciesName))
-    {
-        <div style="margin-top:12px;font-size:1.2rem;font-weight:700">@speciesName</div>
-    }
+        <button class="action primary scanner-submit"
+                type="button"
+                disabled="@(!_canScan || _isScanning)"
+                @onclick="ScanAndLogAsync">
+            @(_isScanning ? "Scanning…" : "Scan & Log Catch")
+        </button>
 
-@if (!string.IsNullOrWhiteSpace(statusMessage))
-{
-    <div style="margin-top:8px">@statusMessage</div>
-}
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <p class="scanner-status">@_statusMessage</p>
+        }
 
-    @if (!string.IsNullOrWhiteSpace(generatedFishImageUrl))
-    {
-        <div style="margin-top:12px">
-            <img src="@generatedFishImageUrl"
-                 alt="Generated illustration of @speciesName"
-                 style="display:block;width:100%;max-width:520px;height:auto;object-fit:contain;border-radius:12px" />
-        </div>
-    }
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <p class="scanner-error">@_errorMessage</p>
+        }
 
-    @if (diagnosticLogs.Count > 0)
-    {
-        <div style="margin-top:12px">
-            <div class="muted">Logs</div>
-            <pre style="margin-top:6px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto">@string.Join("\n", diagnosticLogs)</pre>
-        </div>
-    }
+        @if (!string.IsNullOrWhiteSpace(_speciesName))
+        {
+            <div class="scanner-result-head">@_speciesName</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_generatedFishImageUrl))
+        {
+            <div class="scanner-image-wrap">
+                <img src="@_generatedFishImageUrl"
+                     alt="Generated illustration of @_speciesName"
+                     class="scanner-image" />
+            </div>
+        }
+    </section>
+
+    <section class="scanner-actions-row">
+        <button class="action secondary" type="button" @onclick="GoToFishDex">Open FishDex</button>
+    </section>
+
+    <bottom-nav />
 </div>
 
-<bottom-nav />
+@if (_showGlobalDiscoveryPopup)
+{
+    <div class="scanner-popup-overlay" @onclick="CloseGlobalDiscoveryPopup">
+        <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
+            <h2>New global species discovered</h2>
+            <p>@_speciesName has been added to the community FishDex.</p>
+            <button class="action primary" type="button" @onclick="CloseGlobalDiscoveryPopup">Awesome</button>
+        </div>
+    </div>
+}
+
+@if (_showUnlockPopup)
+{
+    <div class="scanner-popup-overlay" @onclick="CloseUnlockPopup">
+        <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
+            <h2>New FishDex unlock</h2>
+            <p>You caught @_speciesName for the first time and unlocked it in your FishDex.</p>
+            <button class="action primary" type="button" @onclick="CloseUnlockPopup">Nice</button>
+        </div>
+    </div>
+}
+
+@if (_showPersonalBestPopup)
+{
+    <div class="scanner-popup-overlay" @onclick="ClosePersonalBestPopup">
+        <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
+            <h2>Personal best</h2>
+            <p>That's your biggest @_speciesName yet.</p>
+            <button class="action primary" type="button" @onclick="ClosePersonalBestPopup">Keep fishing</button>
+        </div>
+    </div>
+}
 
 @code {
     private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
 
-    private bool isScanning;
-    private string? speciesName;
-    private string? generatedFishImageUrl;
-    private string? statusMessage;
-    private string? errorMessage;
-    private readonly List<string> diagnosticLogs = new();
+    private IBrowserFile? _selectedPhoto;
+    private bool _isScanning;
+    private string? _speciesName;
+    private string? _generatedFishImageUrl;
+    private string? _statusMessage;
+    private string? _errorMessage;
+    private string _lengthInputText = string.Empty;
+    private bool _canScan;
+    private bool _showGlobalDiscoveryPopup;
+    private bool _showUnlockPopup;
+    private bool _showPersonalBestPopup;
 
-    private async Task ScanFromPhotoAsync(InputFileChangeEventArgs eventArgs)
+    private Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
-        if (isScanning)
+        _selectedPhoto = eventArgs.File;
+        _canScan = _selectedPhoto is not null;
+        _errorMessage = null;
+        _statusMessage = _selectedPhoto is null
+            ? "No photo selected."
+            : "Ready to scan your catch.";
+
+        return Task.CompletedTask;
+    }
+
+    private void OnLengthChanged(ChangeEventArgs eventArgs)
+    {
+        _lengthInputText = eventArgs.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task ScanAndLogAsync()
+    {
+        if (_isScanning || _selectedPhoto is null)
         {
             return;
         }
 
-        var photo = eventArgs.File;
-        if (photo is null)
-        {
-            errorMessage = "No photo was selected.";
-            return;
-        }
-
-        isScanning = true;
-        speciesName = null;
-        generatedFishImageUrl = null;
-        statusMessage = "Scanning fish species...";
-        errorMessage = null;
-        diagnosticLogs.Clear();
-        await AppendLogAsync("Scanner started.");
+        _isScanning = true;
+        _speciesName = null;
+        _generatedFishImageUrl = null;
+        _showGlobalDiscoveryPopup = false;
+        _showUnlockPopup = false;
+        _showPersonalBestPopup = false;
+        _statusMessage = "Scanning fish species...";
+        _errorMessage = null;
 
         try
         {
-            var mimeType = string.IsNullOrWhiteSpace(photo.ContentType)
+            var mimeType = string.IsNullOrWhiteSpace(_selectedPhoto.ContentType)
                 ? "image/jpeg"
-                : photo.ContentType;
+                : _selectedPhoto.ContentType;
 
-            await using var stream = photo.OpenReadStream(MaxPhotoSizeBytes);
+            await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
             using var memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
 
             if (memoryStream.Length == 0)
             {
-                errorMessage = "No photo data was found.";
-                await AppendLogAsync("No photo data was found.");
+                _errorMessage = "No photo data was found.";
+                _statusMessage = null;
                 return;
             }
 
-            await AppendLogAsync("Submitting photo to Gemini for species detection.");
-            speciesName = await GeminiFishSpeciesService
-                .IdentifyFishSpeciesAsync(memoryStream.ToArray(), mimeType);
-            await AppendLogAsync($"Species detected: {speciesName}");
-            await InvokeAsync(StateHasChanged);
+            var currentUser = await SocialService.ResolveCurrentUserAsync();
+            var scanRequest = new FishScanLogRequestDto(
+                memoryStream.ToArray(),
+                mimeType,
+                ParseLengthMeters(),
+                null,
+                null,
+                null);
 
-            if (!string.IsNullOrWhiteSpace(speciesName)
-                && !speciesName.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+            var scanResult = await FishDexService.ScanAndLogCatchAsync(currentUser.Id, scanRequest);
+            _speciesName = scanResult.SpeciesName;
+            _generatedFishImageUrl = scanResult.SpeciesImageUrl;
+            _statusMessage = "Catch logged and FishDex updated.";
+
+            _showGlobalDiscoveryPopup = scanResult.IsNewGlobalSpecies;
+            _showUnlockPopup = scanResult.IsFirstCatchForUser;
+            _showPersonalBestPopup = !scanResult.IsFirstCatchForUser && scanResult.IsNewPersonalBest;
+
+            if (scanResult.WasImageGenerated)
             {
-                statusMessage = $"Generating image for {speciesName}...";
-                await AppendLogAsync($"Starting Leonardo generation for {speciesName}.");
-                await InvokeAsync(StateHasChanged);
-
-                generatedFishImageUrl = await LeonardoFishImageService
-                    .GenerateFishImageUrlAsync(speciesName, AppendLogAsync);
-
-                statusMessage = "Image generated.";
-                await AppendLogAsync("Image generation completed.");
-            }
-            else
-            {
-                statusMessage = "Species is unknown. Image generation skipped.";
-                await AppendLogAsync("Species unknown. Leonardo generation skipped.");
+                _statusMessage = "Catch logged, FishDex updated, and a new species image was generated.";
             }
         }
         catch (OperationCanceledException)
         {
-            errorMessage = "Photo processing was canceled.";
-            statusMessage = null;
-            await AppendLogAsync("Processing canceled.");
+            _errorMessage = "Photo processing was canceled.";
+            _statusMessage = null;
         }
         catch (IOException)
         {
-            errorMessage = "Photo must be smaller than 10 MB.";
-            statusMessage = null;
-            await AppendLogAsync("Photo exceeded the 10 MB limit.");
+            _errorMessage = "Photo must be smaller than 10 MB.";
+            _statusMessage = null;
         }
         catch (InvalidOperationException ex)
         {
-            errorMessage = ex.Message;
-            statusMessage = null;
-            await AppendLogAsync($"Invalid operation: {ex.Message}");
+            _errorMessage = ex.Message;
+            _statusMessage = null;
         }
         catch (HttpRequestException ex)
         {
-            errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
                 ? "Network request failed while generating the image."
                 : ex.Message;
-            statusMessage = null;
-            await AppendLogAsync($"Network error: {errorMessage}");
+            _statusMessage = null;
         }
         catch (System.Text.Json.JsonException ex)
         {
-            errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
                 ? "Invalid response was returned by the image service."
                 : ex.Message;
-            statusMessage = null;
-            await AppendLogAsync($"JSON parsing error: {errorMessage}");
+            _statusMessage = null;
         }
         finally
         {
-            isScanning = false;
-            await AppendLogAsync("Scanner finished.");
+            _isScanning = false;
         }
     }
 
-    private Task AppendLogAsync(string message)
+    private double? ParseLengthMeters()
     {
-        if (string.IsNullOrWhiteSpace(message))
+        if (string.IsNullOrWhiteSpace(_lengthInputText))
         {
-            return Task.CompletedTask;
+            return null;
         }
 
-        return InvokeAsync(() =>
+        if (double.TryParse(_lengthInputText, CultureInfo.InvariantCulture, out var lengthMeters) && lengthMeters > 0)
         {
-            diagnosticLogs.Add($"{DateTime.Now:HH:mm:ss} {message}");
-            StateHasChanged();
-        });
+            return lengthMeters;
+        }
+
+        throw new InvalidOperationException("Fish length must be a positive number in meters.");
+    }
+
+    private void GoToFishDex()
+    {
+        NavigationManager.NavigateTo("/fishdex");
+    }
+
+    private void CloseGlobalDiscoveryPopup()
+    {
+        _showGlobalDiscoveryPopup = false;
+    }
+
+    private void CloseUnlockPopup()
+    {
+        _showUnlockPopup = false;
+    }
+
+    private void ClosePersonalBestPopup()
+    {
+        _showPersonalBestPopup = false;
     }
 }
