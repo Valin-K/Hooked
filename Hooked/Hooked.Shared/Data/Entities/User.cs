@@ -20,5 +20,8 @@ namespace Hooked.Shared.Data
         public ICollection<FishingSession> FishingSessions { get; set; } = new List<FishingSession>();
         public ICollection<Post> Posts { get; set; } = new List<Post>();
         public ICollection<UserAchievement> UserAchievements { get; set; } = new List<UserAchievement>();
+        public ICollection<UserSkill> UserSkills { get; set; } = new List<UserSkill>();
+        public ICollection<UserFishingQuestProgress> FishingQuestProgress { get; set; } = new List<UserFishingQuestProgress>();
+        public ICollection<XpEvent> XpEvents { get; set; } = new List<XpEvent>();
     }
 }

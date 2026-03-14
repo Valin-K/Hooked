@@ -60,6 +60,7 @@ namespace Hooked.Shared.Services
         int ReactionCount,
         int CommentCount,
         bool ViewerHasReacted,
+        bool IsFavorite,
         IReadOnlyList<SocialCommentDto> RecentComments);
 
     public sealed record SocialReactionToggleDto(Guid CatchId, Guid UserId, bool IsReacted, int ReactionCount);

@@ -1,0 +1,118 @@
+@if (RequiredXp > 0)
+{
+    var progressPercent = Math.Min(100, (int)Math.Round((CurrentXp / (double)RequiredXp) * 100));
+    
+    <div class="progress-container">
+        <div class="progress-bar-wrapper">
+            <div class="progress-bar-background">
+                <div class="progress-bar-fill @GetProgressColor()" style="width: @progressPercent%"></div>
+            </div>
+            <span class="progress-text">@CurrentXp / @RequiredXp XP</span>
+        </div>
+        <div class="level-info">Level @CurrentLevel@(CurrentLevel >= MaxLevel ? " (MAX)" : "")</div>
+    </div>
+}
+else
+{
+    <div class="progress-container">
+        <div class="level-info">Level @CurrentLevel (MAX)</div>
+    </div>
+}
+
+<style scoped>
+.progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.progress-bar-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.progress-bar-background {
+    flex: 1;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.progress-bar-fill.red {
+    background: linear-gradient(90deg, rgb(239, 68, 68), rgb(220, 38, 38));
+}
+
+.progress-bar-fill.yellow {
+    background: linear-gradient(90deg, rgb(251, 146, 60), rgb(234, 88, 12));
+}
+
+.progress-bar-fill.green {
+    background: linear-gradient(90deg, rgb(34, 197, 94), rgb(22, 163, 74));
+}
+
+.progress-text {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.level-info {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+@@media (prefers-color-scheme: dark) {
+    .progress-bar-background {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .progress-text {
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    }
+}
+</style>
+
+@code {
+    [Parameter]
+    public int CurrentXp { get; set; }
+
+    [Parameter]
+    public int RequiredXp { get; set; }
+
+    [Parameter]
+    public int CurrentLevel { get; set; }
+
+    [Parameter]
+    public int MaxLevel { get; set; } = 10;
+
+    private string GetProgressColor()
+    {
+        if (RequiredXp <= 0) return "green";
+        
+        var progressPercent = (CurrentXp / (double)RequiredXp) * 100;
+        
+        return progressPercent switch
+        {
+            >= 75 => "green",
+            >= 40 => "yellow",
+            _ => "red"
+        };
+    }
+}

@@ -21,9 +21,13 @@ namespace Hooked.Shared.Services
             services.AddScoped<IAchievementService, AchievementService>();
             services.AddScoped<IFishDexService, FishDexService>();
             services.AddScoped<ISocialService, SocialService>();
+            services.AddScoped<IFishingQuestService, FishingQuestService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
             services.AddScoped<IMapService, MapService>();
             services.AddScoped<ISessionService, SessionService>();
+            services.Configure<ProgressionOptions>(configuration.GetSection(ProgressionOptions.SectionName));
+            services.AddScoped<IXpNotificationService, XpNotificationService>();
+            services.AddScoped<IProgressionService, ProgressionService>();
             services.AddScoped<INotificationService, NotificationService>();
 
             services.AddSingleton<InsightsCacheService>();
