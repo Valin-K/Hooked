@@ -2,6 +2,7 @@
 @page "/profile/{Username}"
 @using Hooked.Shared.Services
 @inject ISocialService SocialService
+@inject IAchievementService AchievementService
 @inject NavigationManager NavigationManager
 
 <PageTitle>@GetPageTitle()</PageTitle>
@@ -74,6 +75,76 @@
                 <p class="muted">@_actionError</p>
             </section>
         }
+
+        <section class="profile-section achievements-section">
+            <div class="section-header">
+                <h2>Achievements</h2>
+                @if (_earned.Count > 0 || _locked.Count > 0)
+                {
+                    <span class="achievement-progress-badge">@_earned.Count <span class="progress-sep">/</span> @(_earned.Count + _locked.Count)</span>
+                }
+            </div>
+
+            @if (_earned.Count == 0)
+            {
+                <div class="ocean-glass achievement-empty">
+                    <span class="achievement-empty-icon">🎣</span>
+                    <div>
+                        <div class="achievement-empty-title">No achievements yet</div>
+                        <div class="muted">Get fishing to earn your first badge!</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="achievement-grid">
+                    @foreach (var a in _earned)
+                    {
+                        <article class="ocean-glass achievement-card earned">
+                            <div class="achievement-icon">@GetAchievementEmoji(a.Key)</div>
+                            <div class="achievement-body">
+                                <div class="achievement-title">@a.Title</div>
+                                @if (!string.IsNullOrWhiteSpace(a.Description))
+                                {
+                                    <div class="achievement-desc">@a.Description</div>
+                                }
+                                @if (a.EarnedAt.HasValue)
+                                {
+                                    <div class="achievement-date">✓ @a.EarnedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</div>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+
+            @if (_locked.Count > 0)
+            {
+                <button class="locked-toggle-btn" type="button" @onclick="() => _showLocked = !_showLocked">
+                    <span>@(_showLocked ? "Hide" : "Show") locked (@_locked.Count)</span>
+                    <span class="toggle-chevron @(_showLocked ? "chevron-open" : string.Empty)">›</span>
+                </button>
+
+                @if (_showLocked)
+                {
+                    <div class="achievement-grid locked-grid">
+                        @foreach (var a in _locked)
+                        {
+                            <article class="ocean-glass achievement-card locked">
+                                <div class="achievement-icon locked-icon">@GetAchievementEmoji(a.Key)</div>
+                                <div class="achievement-body">
+                                    <div class="achievement-title">@a.Title</div>
+                                    @if (!string.IsNullOrWhiteSpace(a.Description))
+                                    {
+                                        <div class="achievement-desc">@a.Description</div>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            }
+        </section>
 
         <section class="profile-feed">
             <div class="feed-header">
@@ -187,6 +258,9 @@
     private SocialUserLookupDto? _currentUser;
     private SocialProfileSummaryDto? _profile;
     private List<ProfileCatchItem> _catchItems = [];
+    private List<AchievementStatusDto> _earned = [];
+    private List<AchievementStatusDto> _locked = [];
+    private bool _showLocked;
     private readonly Dictionary<Guid, string> _commentDrafts = [];
     private readonly HashSet<Guid> _reactionBusyCatchIds = [];
     private readonly HashSet<Guid> _commentBusyCatchIds = [];
@@ -214,6 +288,9 @@
         _actionError = null;
         _profile = null;
         _catchItems = [];
+        _earned = [];
+        _locked = [];
+        _showLocked = false;
         _commentDrafts.Clear();
         _reactionBusyCatchIds.Clear();
         _commentBusyCatchIds.Clear();
@@ -237,6 +314,9 @@
             {
                 var feedItems = await SocialService.GetUserFeedAsync(_profile.UserId, _currentUser.Id, 25);
                 _catchItems = feedItems.Select(MapFeedItem).ToList();
+                var all = await AchievementService.GetAllWithStatusAsync(_profile.UserId);
+                _earned = all.Where(a => a.IsEarned).OrderBy(a => a.EarnedAt).ToList();
+                _locked = all.Where(a => !a.IsEarned).ToList();
             }
         }
         catch (Exception ex)
@@ -491,6 +571,24 @@
     {
         NavigationManager.NavigateTo("/");
     }
+
+    private static string GetAchievementEmoji(string key) => key switch
+    {
+        "first-catch"      => "🎣",
+        "catch-5"          => "🐟",
+        "catch-25"         => "🎖️",
+        "catch-100"        => "🏆",
+        "species-3"        => "🔬",
+        "species-10"       => "🦈",
+        "fishdex-complete" => "📖",
+        "big-catch"        => "🐋",
+        "personal-best"    => "⭐",
+        "global-discovery" => "🌍",
+        "session-complete" => "⛵",
+        "session-3"        => "🗓️",
+        "social-butterfly" => "🤝",
+        _                  => "🏅"
+    };
 
     private sealed class ProfileCatchItem
     {

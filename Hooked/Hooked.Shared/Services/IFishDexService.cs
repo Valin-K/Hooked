@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Hooked.Shared.Services;
 
 namespace Hooked.Shared.Services
 {
@@ -34,7 +35,8 @@ namespace Hooked.Shared.Services
         bool IsNewGlobalSpecies,
         bool IsFirstCatchForUser,
         bool IsNewPersonalBest,
-        bool WasImageGenerated);
+        bool WasImageGenerated,
+        IReadOnlyList<AchievementUnlockDto> NewlyUnlockedAchievements);
 
     public sealed record FishDexOverviewDto(
         Guid UserId,
