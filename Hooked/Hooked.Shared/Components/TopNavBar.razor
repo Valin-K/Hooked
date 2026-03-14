@@ -4,7 +4,9 @@
 
 <header class="app-header ocean-glass top-nav-header">
     <div class="brand-lockup">
-        <span class="brand-mark">◌</span>
+        <span class="brand-mark" aria-hidden="true">
+            <AppIcon Name="fish" Size="16" />
+        </span>
         <div>
             <div class="title">Hooked</div>
             <div class="brand-subtitle">@Subtitle</div>
@@ -16,7 +18,9 @@
             @foreach (var item in NavItems)
             {
                 <a href="@item.Href" class="@GetNavItemClass(item)" title="@item.Label">
-                    <span class="top-nav-icon">@GetNavIcon(item)</span>
+                    <span class="top-nav-icon" aria-hidden="true">
+                        <AppIcon Name="@GetNavIcon(item)" Size="15" />
+                    </span>
                     @if (!item.IconOnly)
                     {
                         <span>@item.Label</span>
@@ -27,9 +31,10 @@
 
         <button class="ghost-icon top-theme-toggle"
                 type="button"
+                aria-label="@GetThemeButtonTitle()"
                 title="@GetThemeButtonTitle()"
                 @onclick="ToggleThemeAsync">
-            @GetThemeButtonIcon()
+            <AppIcon Name="@GetThemeButtonIcon()" Size="18" />
         </button>
     </div>
 </header>
@@ -47,12 +52,12 @@
 
     private static readonly IReadOnlyList<NavItem> NavItems =
     [
-        new("/", "Home", "⌂", "⌂", true),
-        new("/map", "Explore Map", "⌖", "🧭"),
-        new("/counter", "Insights", "◔", "◕"),
-        new("/fishdex", "FishDex", "◍", "◉"),
-        new("/leaderboard", "Leaderboard", "☆", "★"),
-        new("/profile", "Profile", "◌", "◎")
+        new("/", "Home", "home", "home", true),
+        new("/map", "Explore Map", "map", "compass"),
+        new("/counter", "Insights", "chart-line", "chart-bar"),
+        new("/fishdex", "FishDex", "fish", "book-open"),
+        new("/leaderboard", "Leaderboard", "trophy", "medal"),
+        new("/profile", "Profile", "user", "user-circle")
     ];
 
     private string GetNavItemClass(NavItem item)
@@ -116,7 +121,7 @@
         _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
     }
 
-    private string GetThemeButtonIcon() => _isDarkMode ? "☀" : "☾";
+    private string GetThemeButtonIcon() => _isDarkMode ? "sun" : "moon";
 
     private string GetThemeButtonTitle() => _isDarkMode ? "Switch to light mode" : "Switch to dark mode";
 

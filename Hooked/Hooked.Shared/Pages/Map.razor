@@ -6,18 +6,26 @@
 @inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 
-<PageTitle>Explore Map · Hooked</PageTitle>
+<PageTitle>Explore Map Â· Hooked</PageTitle>
 
 <div class="map-page">
     <header class="map-header ocean-glass">
         <div class="brand-lockup">
-            <span class="brand-mark">?</span>
+            <span class="brand-mark" aria-hidden="true">
+                <AppIcon Name="map-pin" Size="16" />
+            </span>
             <div>
                 <div class="title">Explore Map</div>
                 <div class="brand-subtitle">Catch Hotspots</div>
             </div>
         </div>
-        <button class="ghost-icon" type="button" title="Back to home" @onclick="@(() => NavigationManager.NavigateTo("/"))">?</button>
+        <button class="ghost-icon map-back-button"
+                type="button"
+                aria-label="Back to home"
+                title="Back to home"
+                @onclick="@(() => NavigationManager.NavigateTo("/"))">
+            <AppIcon Name="arrow-left" Size="18" />
+        </button>
     </header>
 
     @if (!string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) &&
@@ -30,7 +38,7 @@
             {
                 <div class="map-overlay-state">
                     <div class="map-spinner"></div>
-                    <span>Loading catches…</span>
+                    <span>Loading catchesâ€¦</span>
                 </div>
             }
             else if (_loadError is not null)
@@ -64,13 +72,13 @@
                                 @GetDisplayName(pin.DisplayName, pin.Username)
                                 @if (pin.LengthMeters.HasValue)
                                 {
-                                    <span> · @($"{pin.LengthMeters.Value:F2} m")</span>
+                                    <span> â€¢ @($"{pin.LengthMeters.Value:F2} m")</span>
                                 }
-                                <span> · @pin.CaughtAt.ToLocalTime().ToString("MMM d")</span>
+                                <span> â€¢ @pin.CaughtAt.ToLocalTime().ToString("MMM d")</span>
                             </div>
                         </div>
                         <div class="map-catch-coord muted">
-                            @($"{pin.Lat:F2}°, {pin.Lng:F2}°")
+                            @($"{pin.Lat:F2}Â°, {pin.Lng:F2}Â°")
                         </div>
                     </button>
                 }
@@ -140,7 +148,7 @@
         }
         catch
         {
-            // module already loaded or classic script — ignore
+            // module already loaded or classic script - ignore
         }
 
         await JS.InvokeVoidAsync(

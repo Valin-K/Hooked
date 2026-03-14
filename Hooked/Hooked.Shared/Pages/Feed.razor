@@ -71,8 +71,8 @@
                                 <div class="catch-metrics">@measurements</div>
                             }
                         </div>
-                        <div class="catch-photo @(item.HasPhoto ? "has-photo" : string.Empty)">
-                            @(item.HasPhoto ? "◉" : "◌")
+                        <div class="catch-photo @(item.HasPhoto ? "has-photo" : string.Empty)" aria-hidden="true">
+                            <AppIcon Name='@(item.HasPhoto ? "image" : "fish")' Size="18" />
                         </div>
                     </div>
 
@@ -81,7 +81,7 @@
                                 type="button"
                                 disabled="@reactionBusy"
                                 @onclick="() => ToggleReactionAsync(item)">
-                            <span>@(item.ViewerHasReacted ? "♥" : "♡")</span>
+                            <AppIcon Name='@(item.ViewerHasReacted ? "heart-filled" : "heart")' Size="15" />
                             <span>@item.ReactionCount</span>
                         </button>
                         <div class="comment-count">@($"{item.CommentCount} comments")</div>
@@ -315,7 +315,7 @@
         var source = string.IsNullOrWhiteSpace(displayName) ? username : displayName;
         if (string.IsNullOrWhiteSpace(source))
         {
-            return "◌";
+            return "U";
         }
 
         return source.Trim()[0].ToString().ToUpperInvariant();
