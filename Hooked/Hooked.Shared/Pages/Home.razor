@@ -35,24 +35,83 @@
         </article>
     </section>
 
+    <!-- Conservation news -->
+    <section class="home-news">
+        <div class="news-header">
+            <h3 class="home-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"/><path d="M16 2v4"/><path d="M8 10h8"/><path d="M8 14h4"/></svg>
+                Fishing &amp; Conservation News
+            </h3>
+        </div>
+
+        <!-- Filter chips -->
+        <div class="news-filters">
+            @foreach (var f in NewsFilters)
+            {
+                <button class="news-filter-chip @(activeNewsFilter == f.Key ? "news-filter-chip--active" : "")"
+                        type="button"
+                        @onclick="() => SetNewsFilter(f.Key)">
+                    @f.Label
+                </button>
+            }
+        </div>
+
+        <div class="news-list">
+            @foreach (var item in visibleNewsItems)
+            {
+                <article class="news-card ocean-glass news-card--@item.Tag">
+                    <div class="news-tag-badge news-tag--@item.Tag">@item.TagLabel</div>
+                    <div class="news-headline">@item.Headline</div>
+                    <div class="news-body">@item.Body</div>
+                    @if (item.ActionHref is not null)
+                    {
+                        <a class="news-action" href="@item.ActionHref" target="_blank" rel="noopener noreferrer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                            @item.ActionLabel
+                        </a>
+                    }
+                </article>
+            }
+        </div>
+
+        @if (filteredNewsItems.Count > newsShowCount)
+        {
+            <button class="news-load-more" type="button" @onclick="ShowMoreNews">
+                Show @Math.Min(NewsPageSize, filteredNewsItems.Count - newsShowCount) more
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+        }
+        else if (newsShowCount > NewsPageSize)
+        {
+            <button class="news-load-more" type="button" @onclick="CollapseNews">
+                Show less
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+        }
+    </section>
+
+    <!-- Recent catches -->
     <section class="recent">
-        <h3>Recent catches</h3>
+        <h3 class="home-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.46-3.44 6-7 6s-7.56-2.54-8.5-6z"/><path d="M18 12v.01"/><path d="m2 12 4-4"/><path d="m2 12 4 4"/></svg>
+            Recent catches
+        </h3>
         @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
         {
             <p class="muted">@loadErrorMessage</p>
         }
-        else if (recentCatches is null)
+        else if (allCatches is null)
         {
             <p class="muted">Loading…</p>
         }
-        else if (!recentCatches.Any())
+        else if (!allCatches.Any())
         {
             <p class="muted">No catches yet — start by scanning a fish.</p>
         }
         else
         {
             <div class="recent-list">
-                @foreach (var c in recentCatches)
+                @foreach (var c in visibleCatches)
                 {
                     <article class="catch-card" @onclick="() => OpenCatch(c.Id)">
                         <div class="catch-photo">@((c.PhotoPath is null) ? "◍" : "◉")</div>
@@ -63,6 +122,21 @@
                     </article>
                 }
             </div>
+
+            @if (catchesShowCount < allCatches.Count)
+            {
+                <button class="news-load-more" type="button" @onclick="ShowMoreCatches">
+                    Show @Math.Min(CatchPageSize, allCatches.Count - catchesShowCount) more
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+            }
+            else if (allCatches.Count > CatchPageSize)
+            {
+                <button class="news-load-more" type="button" @onclick="CollapseCatches">
+                    Show less
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+            }
         }
     </section>
 
@@ -70,48 +144,139 @@
 </div>
 
 @code {
-    private IEnumerable<Hooked.Shared.Data.CatchRecord>? recentCatches;
+    private List<Hooked.Shared.Data.CatchRecord>? allCatches;
     private string? loadErrorMessage;
     private int recentCatchCount;
     private int todayCatchCount;
     private string longestCatchText = "—";
 
+    // ── Catches pagination ──────────────────────────────────────────
+    private const int CatchPageSize = 5;
+    private int catchesShowCount = CatchPageSize;
+    private IEnumerable<Hooked.Shared.Data.CatchRecord> visibleCatches =>
+        allCatches?.Take(catchesShowCount) ?? [];
+
+    private void ShowMoreCatches() => catchesShowCount += CatchPageSize;
+    private void CollapseCatches() => catchesShowCount = CatchPageSize;
+
+    // ── News filter state ───────────────────────────────────────────
+    private const int NewsPageSize = 3;
+    private string activeNewsFilter = "all";
+    private int newsShowCount = NewsPageSize;
+
+    private List<NewsItem> filteredNewsItems =>
+        activeNewsFilter == "all"
+            ? NewsItems.ToList()
+            : NewsItems.Where(n => n.Tag == activeNewsFilter).ToList();
+
+    private IEnumerable<NewsItem> visibleNewsItems =>
+        filteredNewsItems.Take(newsShowCount);
+
+    private void SetNewsFilter(string filter)
+    {
+        activeNewsFilter = filter;
+        newsShowCount = NewsPageSize;
+    }
+
+    private void ShowMoreNews() => newsShowCount += NewsPageSize;
+    private void CollapseNews() => newsShowCount = NewsPageSize;
+
+    private sealed record NewsFilter(string Key, string Label);
+
+    private static readonly IReadOnlyList<NewsFilter> NewsFilters =
+    [
+        new("all",          "All"),
+        new("endangered",   "Endangered"),
+        new("invasive",     "Invasive"),
+        new("regulation",   "Regulations"),
+        new("conservation", "Conservation"),
+    ];
+
+    [Inject]
+    public NavigationManager NavigationManager { get; set; } = null!;
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            recentCatches = await CatchService.GetRecentCatchesAsync(20);
+            var fetched = await CatchService.GetRecentCatchesAsync(100);
+            allCatches = fetched.ToList();
 
-            var catchList = recentCatches?.ToList() ?? [];
-            recentCatchCount = catchList.Count;
-            todayCatchCount = catchList.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
+            recentCatchCount = allCatches.Count;
+            todayCatchCount = allCatches.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
 
-            var longestCatch = catchList
+            var longestCatch = allCatches
                 .Where(c => c.LengthMeters.HasValue)
                 .Select(c => c.LengthMeters!.Value)
                 .DefaultIfEmpty()
                 .Max();
 
             if (longestCatch > 0)
-            {
                 longestCatchText = $"{longestCatch:F2} m";
-            }
         }
         catch (Exception)
         {
-            recentCatches = [];
+            allCatches = [];
             loadErrorMessage = "Could not load catches right now.";
         }
     }
 
-    private void ScanFish()
-    {
-        NavigationManager.NavigateTo("/arscanner");
-    }
-
-    [Inject]
-    public NavigationManager NavigationManager { get; set; } = null!;
-
+    private void ScanFish() => NavigationManager.NavigateTo("/arscanner");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
     private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
+
+    // ── Static conservation news ────────────────────────────────────
+
+    private sealed record NewsItem(string Tag, string TagLabel, string Headline, string Body, string? ActionLabel = null, string? ActionHref = null);
+
+    private static readonly IReadOnlyList<NewsItem> NewsItems =
+    [
+        new("endangered", "Endangered",
+            "Murray Cod under threat",
+            "Australia's iconic Murray Cod (Maccullochella peelii) faces critical habitat loss from drought and irrigation. Minimum size limit is 55 cm — please release undersized fish carefully.",
+            "NSW DPI – Murray Cod",
+            "https://www.dpi.nsw.gov.au/fishing/recreational/go-fish-nsw/fish-of-nsw/murray-cod"),
+
+        new("invasive", "Invasive",
+            "Carp dominate Murray-Darling Basin",
+            "European Carp make up over 80% of fish biomass in parts of the Murray-Darling system. Do NOT return carp to the water — dispose of them responsibly to protect native species.",
+            "DCCEEW – Invasive Carp",
+            "https://www.dcceew.gov.au/environment/invasive-species/invasive-animals/carp"),
+
+        new("invasive", "Invasive",
+            "Tilapia spreading in QLD waterways",
+            "Mozambique Tilapia are an aggressive invasive species in Queensland. It is illegal to use them as bait or return them alive. Report sightings to Biosecurity Queensland.",
+            "QLD DAF – Tilapia",
+            "https://www.daf.qld.gov.au/business-priorities/fisheries/fish-biosecurity/invasive-fish/tilapia"),
+
+        new("endangered", "Endangered",
+            "Spotted Handfish — fewer than 3,000 remain",
+            "The Spotted Handfish (Brachionichthys hirsutus) is found only in the Derwent Estuary, Tasmania. Avoid disturbing seabed habitats when fishing inshore areas.",
+            "DCCEEW – Spotted Handfish",
+            "https://www.dcceew.gov.au/environment/biodiversity/threatened/species-profiles/pages/brachionichthys-hirsutus.html"),
+
+        new("regulation", "Regulation",
+            "Shark finning banned in Commonwealth waters",
+            "Australia prohibits possession of detached shark fins in Commonwealth waters. Sharks must be released or landed whole. Check state-specific rules before targeting sharks.",
+            "AFMA – Shark Management",
+            "https://www.afma.gov.au/fisheries-management/species/sharks"),
+
+        new("conservation", "Conservation",
+            "Catch and release best practice",
+            "Use circle hooks to reduce deep-hooking. Minimise air exposure to under 30 seconds. Revive the fish in the water by moving it gently forward before release to restore gill function.",
+            "OzFish – Handling Guide",
+            "https://ozfish.org.au/resources/fishing-for-the-future/catch-and-release/"),
+
+        new("invasive", "Invasive",
+            "Gambusia (Mosquitofish) in freshwater systems",
+            "Gambusia affinis aggressively out-competes and damages native fish and frog populations. They are illegal to keep, sell, or release in most Australian states.",
+            "DCCEEW – Gambusia",
+            "https://www.dcceew.gov.au/environment/invasive-species/invasive-animals/gambusia"),
+
+        new("regulation", "Regulation",
+            "Recreational fishing licence reminder",
+            "Most Australian states require a recreational fishing licence for saltwater and freshwater fishing. Fines for non-compliance can exceed $500. Always carry your licence.",
+            "GetFishing – Licence Info",
+            "https://www.getfishing.com.au/fishing-licences"),
+    ];
 }
