@@ -6,6 +6,7 @@
 @inject IFishDexService FishDexService
 @inject ISocialService SocialService
 @inject IGeminiFishSpeciesService GeminiService
+@inject IReferenceMeasurementService MeasurementService
 @inject ILocationService LocationService
 @inject NavigationManager NavigationManager
 
@@ -22,13 +23,45 @@
         <label class="scanner-field-label">Fish photo</label>
         <InputFile OnChange="HandlePhotoSelectedAsync" accept="image/*" capture="environment" disabled="@_isScanning" />
 
+        <div class="scanner-auto-measure-toggle">
+            <label class="scanner-checkbox-label">
+                <input type="checkbox" @bind="_autoMeasureEnabled" disabled="@_isScanning" />
+                <span>Auto-measure fish length (AR)</span>
+            </label>
+            @if (_autoMeasureEnabled)
+            {
+                <p class="scanner-info-text">Place a reference object (e.g., credit card = 0.085m) next to the fish for accurate measurements.</p>
+            }
+        </div>
+
+        @if (_autoMeasureEnabled && _detectedBoundingBox != null)
+        {
+            <div class="scanner-ar-result">
+                <div class="scanner-ar-badge">✓ Fish detected</div>
+                <p class="scanner-ar-info">Bounding box: [@_detectedBoundingBox.Y0, @_detectedBoundingBox.X0] → [@_detectedBoundingBox.Y1, @_detectedBoundingBox.X1]</p>
+            </div>
+        }
+
+        @if (_autoMeasureEnabled)
+        {
+            <label class="scanner-field-label" for="reference-size-input">Reference object size (meters)</label>
+            <input id="reference-size-input"
+                   class="scanner-input"
+                   inputmode="decimal"
+                   placeholder="e.g. 0.085 (credit card)"
+                   value="@_referenceObjectSizeText"
+                   @oninput="OnReferenceSizeChanged"
+                   disabled="@_isScanning" />
+        }
+
         <label class="scanner-field-label" for="fish-length-input">Fish length (meters)</label>
         <input id="fish-length-input"
                class="scanner-input"
                inputmode="decimal"
                placeholder="e.g. 0.74"
                value="@_lengthInputText"
-               @oninput="OnLengthChanged" />
+               @oninput="OnLengthChanged"
+               readonly="@(_autoMeasureEnabled && _isAutoMeasuring)" />
 
         <button class="action primary scanner-submit"
                 type="button"
@@ -129,22 +162,98 @@
     private bool _showPersonalBestPopup;
     private bool _showEnvironmentalPopup;
     private string? _environmentalImpactMessage;
+    private bool _autoMeasureEnabled;
+    private bool _isAutoMeasuring;
+    private FishBoundingBoxDto? _detectedBoundingBox;
+    private string _referenceObjectSizeText = "0.085";
+    private byte[]? _photoBytes;
 
-    private Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
+    private async Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
         _selectedPhoto = eventArgs.File;
         _canScan = _selectedPhoto is not null;
         _errorMessage = null;
+        _detectedBoundingBox = null;
         _statusMessage = _selectedPhoto is null
             ? "No photo selected."
             : "Ready to scan your catch.";
 
-        return Task.CompletedTask;
+        if (_autoMeasureEnabled && _selectedPhoto is not null)
+        {
+            await AutoMeasureFishLengthAsync();
+        }
     }
 
     private void OnLengthChanged(ChangeEventArgs eventArgs)
     {
         _lengthInputText = eventArgs.Value?.ToString() ?? string.Empty;
+    }
+
+    private void OnReferenceSizeChanged(ChangeEventArgs eventArgs)
+    {
+        _referenceObjectSizeText = eventArgs.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task AutoMeasureFishLengthAsync()
+    {
+        if (_selectedPhoto is null || _isAutoMeasuring)
+        {
+            return;
+        }
+
+        _isAutoMeasuring = true;
+        _statusMessage = "Detecting fish in image...";
+        _errorMessage = null;
+
+        try
+        {
+            var mimeType = string.IsNullOrWhiteSpace(_selectedPhoto.ContentType)
+                ? "image/jpeg"
+                : _selectedPhoto.ContentType;
+
+            await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            _photoBytes = memoryStream.ToArray();
+
+            if (_photoBytes.Length == 0)
+            {
+                _errorMessage = "No photo data was found.";
+                _statusMessage = null;
+                return;
+            }
+
+            // Detect fish bounding box
+            _detectedBoundingBox = await GeminiService.DetectFishBoundingBoxAsync(_photoBytes, mimeType);
+
+            if (_detectedBoundingBox is null)
+            {
+                _errorMessage = "Could not detect a fish in the image. Please try a different photo.";
+                _statusMessage = null;
+                return;
+            }
+
+            // Calculate fish length from bounding box
+            if (double.TryParse(_referenceObjectSizeText, CultureInfo.InvariantCulture, out var referenceSize) && referenceSize > 0)
+            {
+                var fishLength = MeasurementService.CalculateFishLengthFromBoundingBox(_detectedBoundingBox, referenceSize);
+                _lengthInputText = fishLength.ToString("F2", CultureInfo.InvariantCulture);
+                _statusMessage = $"Fish detected! Estimated length: {fishLength:F2}m";
+            }
+            else
+            {
+                _statusMessage = "Fish detected! Please enter a valid reference object size.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Auto-measure failed: {ex.Message}";
+            _statusMessage = null;
+        }
+        finally
+        {
+            _isAutoMeasuring = false;
+        }
     }
 
     private async Task ScanAndLogAsync()
@@ -170,11 +279,22 @@
                 ? "image/jpeg"
                 : _selectedPhoto.ContentType;
 
-            await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
+            byte[] photoBytes;
 
-            if (memoryStream.Length == 0)
+            // Reuse photo bytes if already loaded from auto-measure
+            if (_photoBytes is not null && _photoBytes.Length > 0)
+            {
+                photoBytes = _photoBytes;
+            }
+            else
+            {
+                await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                photoBytes = memoryStream.ToArray();
+            }
+
+            if (photoBytes.Length == 0)
             {
                 _errorMessage = "No photo data was found.";
                 _statusMessage = null;
@@ -188,7 +308,7 @@
 
             var currentUser = await SocialService.ResolveCurrentUserAsync();
             var scanRequest = new FishScanLogRequestDto(
-                memoryStream.ToArray(),
+                photoBytes,
                 mimeType,
                 ParseLengthMeters(),
                 null,

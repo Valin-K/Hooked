@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.GenAI;
 using Google.GenAI.Types;
+using SixLabors.ImageSharp;
 
 namespace Hooked.Shared.Services.AI
 {
@@ -233,10 +236,105 @@ namespace Hooked.Shared.Services.AI
                 throw new InvalidOperationException($"Could not generate an environmental impact for the species '{speciesName}'.");
             }
 
-            // Remove excessive markdown like **bold** usually returned by Gemini 
+            // Remove excessive markdown like **bold** usually returned by Gemini
             result = result.Replace("**", "").Replace("*", "");
 
             return result;
+        }
+
+        public async Task<FishBoundingBoxDto?> DetectFishBoundingBoxAsync(byte[] imageBytes, string mimeType = "image/jpeg", CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(imageBytes);
+
+            if (imageBytes.Length == 0)
+            {
+                throw new ArgumentException("Image bytes are required.", nameof(imageBytes));
+            }
+
+            if (string.IsNullOrWhiteSpace(mimeType))
+            {
+                throw new ArgumentException("MIME type is required.", nameof(mimeType));
+            }
+
+            if (_client is null)
+            {
+                throw new InvalidOperationException("Gemini API key is not configured.");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Get image dimensions
+            int imageWidth, imageHeight;
+            using (var image = Image.Load(imageBytes))
+            {
+                imageWidth = image.Width;
+                imageHeight = image.Height;
+            }
+
+            GenerateContentResponse response;
+
+            try
+            {
+                response = await _client.Models.GenerateContentAsync(
+                    model: ModelName,
+                    contents: new List<Content>
+                    {
+                        new()
+                        {
+                            Parts = new List<Part>
+                            {
+                                new()
+                                {
+                                    Text = "Detect the fish in this image and return ONLY the bounding box coordinates in this exact format: [y0, x0, y1, x1] where coordinates are normalized integers between 0 and 1000. Return ONLY the numbers in brackets, nothing else. If no fish is detected, return: none"
+                                },
+                                new()
+                                {
+                                    InlineData = new Blob
+                                    {
+                                        Data = imageBytes,
+                                        MimeType = mimeType
+                                    }
+                                }
+                            }
+                        }
+                    }).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests || ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("too many requests", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+
+            var boxText = response?.Candidates?[0]?.Content?.Parts?[0]?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(boxText) || boxText.Contains("none", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            // Parse the bounding box coordinates [y0, x0, y1, x1]
+            var match = Regex.Match(boxText, @"\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\]");
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            var y0 = int.Parse(match.Groups[1].Value);
+            var x0 = int.Parse(match.Groups[2].Value);
+            var y1 = int.Parse(match.Groups[3].Value);
+            var x1 = int.Parse(match.Groups[4].Value);
+
+            return new FishBoundingBoxDto(y0, x0, y1, x1, imageWidth, imageHeight);
         }
     }
 }

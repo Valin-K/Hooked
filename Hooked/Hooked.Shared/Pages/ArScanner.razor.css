@@ -90,3 +90,63 @@
 .scanner-popup h2 {
     margin: 0 0 0.45rem;
 }
+
+.scanner-auto-measure-toggle {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: rgba(105, 216, 255, 0.08);
+    border: 1px solid rgba(105, 216, 255, 0.2);
+}
+
+.scanner-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-strong);
+}
+
+.scanner-checkbox-label input[type="checkbox"] {
+    width: 1.2rem;
+    height: 1.2rem;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+.scanner-info-text {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-soft);
+    line-height: 1.4;
+}
+
+.scanner-ar-result {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    background: linear-gradient(140deg, rgba(34, 211, 238, 0.15), rgba(105, 216, 255, 0.1));
+    border: 1px solid rgba(105, 216, 255, 0.3);
+}
+
+.scanner-ar-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(105, 216, 255, 0.15);
+    border: 1px solid rgba(105, 216, 255, 0.3);
+}
+
+.scanner-ar-info {
+    margin: 0.5rem 0 0;
+    font-size: 0.72rem;
+    color: var(--text-soft);
+    font-family: 'Courier New', monospace;
+}

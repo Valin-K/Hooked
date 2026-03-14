@@ -34,6 +34,8 @@ namespace Hooked.Shared.Services
                     configuration["ReferenceImageId"],
                     sp.GetRequiredService<IGeminiFishSpeciesService>()));
 
+            services.AddSingleton<IReferenceMeasurementService, ReferenceMeasurementService>();
+
             return services;
         }
     }
