@@ -2,33 +2,40 @@
 @inject NavigationManager NavigationManager
 
 <nav class="bottom-nav">
-    <a href="/" class="@GetNavItemClass("/")" title="Home">
-        <span class="nav-icon">@GetNavIcon("/", "⌂", "⌂")</span>
-        <div class="label">Home</div>
+    <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed" aria-label="Feed">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/feed", "feed", "feed")' Size="20" />
+        </span>
     </a>
-    <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed">
-        <span class="nav-icon">@GetNavIcon("/feed", "◒", "◕")</span>
-        <div class="label">Feed</div>
+    <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish" aria-label="Scan Fish">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/arscanner", "scan", "scan")' Size="20" />
+        </span>
     </a>
-    <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish">
-        <span class="nav-icon">@GetNavIcon("/arscanner", "◎", "◉")</span>
-        <div class="label">Scan</div>
+    <a href="/map" class="@GetNavItemClass("/map")" title="Map" aria-label="Map">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/map", "map", "compass")' Size="20" />
+        </span>
     </a>
-    <a href="/map" class="@GetNavItemClass("/map")" title="Map">
-        <span class="nav-icon">@GetNavIcon("/map", "⌖", "🧭")</span>
-        <div class="label">Map</div>
+    <a href="/" class="@($"{GetNavItemClass("/")} nav-home")" title="Home" aria-label="Home">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/", "home", "home")' Size="22" />
+        </span>
     </a>
-    <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary">
-        <span class="nav-icon">@GetNavIcon("/fishdex", "◍", "◉")</span>
-        <div class="label">FishDex</div>
+    <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary" aria-label="FishDex">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/fishdex", "fish", "book-open")' Size="20" />
+        </span>
     </a>
-    <a href="/leaderboard" class="@GetNavItemClass("/leaderboard")" title="Leaderboard">
-        <span class="nav-icon">@GetNavIcon("/leaderboard", "☆", "★")</span>
-        <div class="label">Ranks</div>
+    <a href="/leaderboard" class="@GetNavItemClass("/leaderboard")" title="Leaderboard" aria-label="Leaderboard">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/leaderboard", "trophy", "medal")' Size="20" />
+        </span>
     </a>
-    <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile">
-        <span class="nav-icon">@GetNavIcon("/profile", "◌", "◎")</span>
-        <div class="label">Profile</div>
+    <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile" aria-label="Profile">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/profile", "user", "user-circle")' Size="20" />
+        </span>
     </a>
 </nav>
 

@@ -8,8 +8,6 @@
 <PageTitle>Hooked</PageTitle>
 
 <div class="mobile-shell">
-    <TopNavBar Subtitle="Ocean Intelligence" />
-
     <section class="hero ocean-glass">
         <div class="badge-pill">AI-Powered Catch Hub</div>
         <h1 class="welcome">Dive into your next trophy catch.</h1>
@@ -114,7 +112,9 @@
                 @foreach (var c in visibleCatches)
                 {
                     <article class="catch-card" @onclick="() => OpenCatch(c.Id)">
-                        <div class="catch-photo">@((c.PhotoPath is null) ? "◍" : "◉")</div>
+                        <div class="catch-photo" aria-hidden="true">
+                            <AppIcon Name='@((c.PhotoPath is null) ? "fish" : "image")' Size="16" />
+                        </div>
                         <div class="catch-meta">
                             <div class="species">@c.Species?.CommonName</div>
                             <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("g")</div>
@@ -140,7 +140,7 @@
         }
     </section>
 
-    <bottom-nav />
+    <BottomNav />
 </div>
 
 @code {
