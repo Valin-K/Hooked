@@ -20,6 +20,11 @@ namespace Hooked.Shared.Services
             services.AddScoped<ILeaderboardService, LeaderboardService>();
             services.AddScoped<IMapService, MapService>();
 
+            services.AddScoped<IInsightsService>(sp =>
+                new InsightsService(
+                    new System.Net.Http.HttpClient(),
+                    configuration["Gemini:ApiKey"]));
+
             services.AddSingleton<IGeminiFishSpeciesService>(_ =>
                 new GeminiFishSpeciesService(configuration["Gemini:ApiKey"]));
 
