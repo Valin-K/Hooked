@@ -52,7 +52,8 @@
 .scanner-image-wrap {
     margin-top: 0.8rem;
     border-radius: 16px;
-    border: 1px solid var(--glass-border);
+    border: none;
+    background: transparent;
     overflow: hidden;
 }
 
@@ -61,7 +62,7 @@
     width: 100%;
     height: auto;
     max-height: 360px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .scanner-actions-row {

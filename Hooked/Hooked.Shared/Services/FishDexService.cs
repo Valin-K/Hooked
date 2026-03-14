@@ -86,6 +86,18 @@ namespace Hooked.Shared.Services
                 fishSpecies.IllustrationGeneratedAt = DateTime.UtcNow;
                 wasImageGenerated = true;
             }
+            else
+            {
+                var transparentImageDataUrl = await _leonardoFishImageService
+                    .ConvertToTransparentPngDataUrlAsync(fishSpecies.IllustrationImageUrl, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (!string.IsNullOrWhiteSpace(transparentImageDataUrl))
+                {
+                    fishSpecies.IllustrationImageUrl = transparentImageDataUrl;
+                    fishSpecies.IllustrationGeneratedAt = DateTime.UtcNow;
+                }
+            }
 
             var now = DateTime.UtcNow;
             var catchRecord = new CatchRecord
@@ -160,6 +172,7 @@ namespace Hooked.Shared.Services
             }
 
             await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
+            await NormalizeExistingIllustrationsAsync(cancellationToken).ConfigureAwait(false);
 
             var discoveredSpecies = await _db.FishSpecies.AsNoTracking()
                 .Where(species => species.Catches.Any())
@@ -276,5 +289,42 @@ namespace Hooked.Shared.Services
             var textInfo = CultureInfo.InvariantCulture.TextInfo;
             return textInfo.ToTitleCase(normalized.ToLowerInvariant());
         }
+
+        private async Task NormalizeExistingIllustrationsAsync(CancellationToken cancellationToken)
+        {
+            var speciesWithIllustrations = await _db.FishSpecies
+                .Where(species => species.Catches.Any()
+                    && !string.IsNullOrWhiteSpace(species.IllustrationImageUrl))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (speciesWithIllustrations.Count == 0)
+            {
+                return;
+            }
+
+            var hasChanges = false;
+            foreach (var species in speciesWithIllustrations)
+            {
+                var transparentImageDataUrl = await _leonardoFishImageService
+                    .ConvertToTransparentPngDataUrlAsync(species.IllustrationImageUrl!, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(transparentImageDataUrl))
+                {
+                    continue;
+                }
+
+                species.IllustrationImageUrl = transparentImageDataUrl;
+                species.IllustrationGeneratedAt = DateTime.UtcNow;
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
     }
 }
