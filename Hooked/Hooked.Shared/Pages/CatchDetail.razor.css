@@ -214,16 +214,21 @@
 }
 
 .comment-row {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
-    column-gap: 0.5rem;
-    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.6rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.comment-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
 .comment-author {
-    grid-row: 1;
     font-size: 0.8rem;
     font-weight: 700;
     color: #64b5f6;
@@ -233,19 +238,82 @@
 .comment-author:hover { color: #90caf9; }
 
 .comment-time {
-    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
     font-size: 0.72rem;
     color: rgba(255, 255, 255, 0.35);
-    justify-self: end;
+}
+
+.edited-badge {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    padding: 0 0.3rem;
+    line-height: 1.4;
 }
 
 .comment-text {
-    grid-column: 1 / -1;
-    grid-row: 2;
     font-size: 0.88rem;
     color: rgba(255, 255, 255, 0.85);
     line-height: 1.4;
-    padding-top: 0.15rem;
+}
+
+.comment-owner-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.comment-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s;
+}
+
+.comment-action-btn:disabled { opacity: 0.4; cursor: default; }
+.comment-action-btn.edit  { color: #64b5f6; }
+.comment-action-btn.edit:hover { opacity: 0.75; }
+.comment-action-btn.delete { color: #ef5350; }
+.comment-action-btn.delete:hover { opacity: 0.75; }
+.comment-action-btn.save  { color: #66bb6a; }
+.comment-action-btn.save:hover { opacity: 0.75; }
+.comment-action-btn.cancel { color: rgba(255, 255, 255, 0.45); }
+.comment-action-btn.cancel:hover { opacity: 0.75; }
+
+.comment-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.1rem;
+}
+
+.comment-edit-input {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(100, 181, 246, 0.4);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    padding: 0.4rem 0.6rem;
+    resize: vertical;
+    min-height: 60px;
+    outline: none;
+    font-family: inherit;
+}
+
+.comment-edit-input:focus { border-color: rgba(100, 181, 246, 0.7); }
+
+.comment-edit-actions {
+    display: flex;
+    gap: 0.75rem;
 }
 
 .action-error {

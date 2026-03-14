@@ -131,10 +131,56 @@
             {
                 @foreach (var comment in _detail.Comments)
                 {
+                    var isOwn = comment.UserId == _currentUserId;
+                    var isEditing = _editingCommentId == comment.Id;
+
                     <div class="comment-row">
-                        <a href="/profile/@Uri.EscapeDataString(comment.Username)" class="comment-author">@("@" + comment.Username)</a>
-                        <span class="comment-text">@comment.CommentText</span>
-                        <span class="comment-time">@comment.CommentedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                        <div class="comment-meta-row">
+                            <a href="/profile/@Uri.EscapeDataString(comment.Username)" class="comment-author">@("@" + comment.Username)</a>
+                            <span class="comment-time">
+                                @comment.CommentedAt.ToLocalTime().ToString("MMM d, h:mm tt")
+                                @if (comment.EditedAt.HasValue)
+                                {
+                                    <span class="edited-badge">edited</span>
+                                }
+                            </span>
+                        </div>
+
+                        @if (isEditing)
+                        {
+                            <div class="comment-edit-form">
+                                <textarea class="comment-edit-input"
+                                          maxlength="500"
+                                          @bind="_editDraft"
+                                          @bind:event="oninput"></textarea>
+                                <div class="comment-edit-actions">
+                                    <button class="comment-action-btn save"
+                                            type="button"
+                                            disabled="@(_editBusy || string.IsNullOrWhiteSpace(_editDraft))"
+                                            @onclick="() => SaveEditAsync(comment.Id)">Save</button>
+                                    <button class="comment-action-btn cancel"
+                                            type="button"
+                                            @onclick="CancelEdit">Cancel</button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="comment-text">@comment.CommentText</span>
+                        }
+
+                        @if (isOwn && !isEditing)
+                        {
+                            <div class="comment-owner-actions">
+                                <button class="comment-action-btn edit"
+                                        type="button"
+                                        @onclick="() => StartEdit(comment.Id, comment.CommentText)">Edit</button>
+                                <button class="comment-action-btn delete"
+                                        type="button"
+                                        disabled="@(_deleteBusyCommentId == comment.Id)"
+                                        @onclick="() => DeleteCommentAsync(comment.Id)">Delete</button>
+                            </div>
+                        }
                     </div>
                 }
             }
@@ -174,6 +220,11 @@
     private bool _commentBusy;
     private string _commentDraft = string.Empty;
     private string? _actionError;
+
+    private Guid? _editingCommentId;
+    private string _editDraft = string.Empty;
+    private bool _editBusy;
+    private Guid? _deleteBusyCommentId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,6 +307,81 @@
     }
 
     private void GoBack() => Navigation.NavigateTo("/feed");
+
+    private void StartEdit(Guid commentId, string currentText)
+    {
+        _editingCommentId = commentId;
+        _editDraft = currentText;
+        _actionError = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingCommentId = null;
+        _editDraft = string.Empty;
+    }
+
+    private async Task SaveEditAsync(Guid commentId)
+    {
+        if (_editBusy || _currentUserId == Guid.Empty || _detail is null)
+        {
+            return;
+        }
+
+        var text = _editDraft.Trim();
+        if (text.Length == 0)
+        {
+            return;
+        }
+
+        _editBusy = true;
+        _actionError = null;
+
+        try
+        {
+            var updated = await SocialService.EditCommentAsync(commentId, _currentUserId, text);
+            var updatedComments = _detail.Comments
+                .Select(c => c.Id == commentId ? updated : c)
+                .ToList();
+            _detail = _detail with { Comments = updatedComments };
+            _editingCommentId = null;
+            _editDraft = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Edit failed: {ex.Message}";
+        }
+        finally
+        {
+            _editBusy = false;
+        }
+    }
+
+    private async Task DeleteCommentAsync(Guid commentId)
+    {
+        if (_deleteBusyCommentId.HasValue || _currentUserId == Guid.Empty || _detail is null)
+        {
+            return;
+        }
+
+        _deleteBusyCommentId = commentId;
+        _actionError = null;
+
+        try
+        {
+            await SocialService.DeleteCommentAsync(commentId, _currentUserId);
+            var updatedComments = _detail.Comments.Where(c => c.Id != commentId).ToList();
+            _detail = _detail with { Comments = updatedComments };
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Delete failed: {ex.Message}";
+        }
+        finally
+        {
+            _deleteBusyCommentId = null;
+        }
+    }
 
     private static string FormatLocation(string locationJson)
     {

@@ -9,6 +9,7 @@ namespace Hooked.Shared.Data
         public Guid UserId { get; set; }
         public string CommentText { get; set; } = null!;
         public DateTime CommentedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? EditedAt { get; set; }
 
         public CatchRecord? Catch { get; set; }
         public User? User { get; set; }
