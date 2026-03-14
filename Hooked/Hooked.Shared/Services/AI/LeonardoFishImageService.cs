@@ -419,12 +419,20 @@ namespace Hooked.Shared.Services.AI
                 return;
             }
 
-            var backgroundModel = BuildBackgroundModel(image);
+            // Trust the corners to be the actual background color, since AI usually places the fish in the center.
+            // By only using the corners (instead of averaging the whole boundary), we prevent fish fins from corrupting the background seed.
+            var bgSamples = new Rgba32[4];
+            bgSamples[0] = image[0, 0];
+            bgSamples[1] = image[width - 1, 0];
+            bgSamples[2] = image[0, height - 1];
+            bgSamples[3] = image[width - 1, height - 1];
 
+            // A very safe, conservative color distance to prevent bleeding into the illustration
+            var threshold = 40d;
             var visited = new bool[width * height];
             var queue = new Queue<(int X, int Y)>();
 
-            static int IndexOf(int x, int y, int imageWidth) => (y * imageWidth) + x;
+            static int IndexOf(int x, int y, int w) => (y * w) + x;
 
             void TryEnqueue(int x, int y)
             {
@@ -435,359 +443,59 @@ namespace Hooked.Shared.Services.AI
                 }
 
                 visited[index] = true;
-                if (IsBackgroundPixel(image[x, y], backgroundModel))
+                
+                var pixel = image[x, y];
+                if (pixel.A == 0) 
+                {
+                    queue.Enqueue((x, y));
+                    return;
+                }
+
+                // Check distance to any corner background sample
+                var isBg = false;
+                foreach (var sample in bgSamples)
+                {
+                    if (ColorDistance(pixel, sample) <= threshold)
+                    {
+                        isBg = true;
+                        break;
+                    }
+                }
+
+                if (isBg)
                 {
                     queue.Enqueue((x, y));
                 }
             }
 
+            // Start flood fill strictly from the absolute borders, and ONLY enqueue if they closely match the corner colors.
+            // This prevents flood-filling the fish if the fish happens to touch the border of the generated image.
             for (var x = 0; x < width; x++)
             {
                 TryEnqueue(x, 0);
                 TryEnqueue(x, height - 1);
             }
-
+            
             for (var y = 0; y < height; y++)
             {
                 TryEnqueue(0, y);
                 TryEnqueue(width - 1, y);
             }
 
+            // Execute flood fill
             while (queue.Count > 0)
             {
-                var (x, y) = queue.Dequeue();
-                var pixel = image[x, y];
-                pixel.A = 0;
-                image[x, y] = pixel;
+                var (cx, cy) = queue.Dequeue();
+                
+                var p = image[cx, cy];
+                p.A = 0;
+                image[cx, cy] = p;
 
-                if (x > 0)
-                {
-                    TryEnqueue(x - 1, y);
-                }
-
-                if (x < width - 1)
-                {
-                    TryEnqueue(x + 1, y);
-                }
-
-                if (y > 0)
-                {
-                    TryEnqueue(x, y - 1);
-                }
-
-                if (y < height - 1)
-                {
-                    TryEnqueue(x, y + 1);
-                }
+                if (cx > 0) TryEnqueue(cx - 1, cy);
+                if (cx < width - 1) TryEnqueue(cx + 1, cy);
+                if (cy > 0) TryEnqueue(cx, cy - 1);
+                if (cy < height - 1) TryEnqueue(cx, cy + 1);
             }
-
-            // Soften edge halos by reducing near-background pixels adjacent to transparency.
-            FeatherForegroundEdges(image, backgroundModel);
-
-            // Keep only the main fish silhouette to remove leftover background fragments.
-            KeepLargestForegroundComponent(image, backgroundModel);
-        }
-
-        private static void FeatherForegroundEdges(Image<Rgba32> image, BackgroundModel backgroundModel)
-        {
-            var width = image.Width;
-            var height = image.Height;
-
-            for (var y = 1; y < height - 1; y++)
-            {
-                for (var x = 1; x < width - 1; x++)
-                {
-                    var pixel = image[x, y];
-                    if (pixel.A == 0)
-                    {
-                        continue;
-                    }
-
-                    var hasTransparentNeighbor =
-                        image[x - 1, y].A == 0 ||
-                        image[x + 1, y].A == 0 ||
-                        image[x, y - 1].A == 0 ||
-                        image[x, y + 1].A == 0;
-
-                    if (!hasTransparentNeighbor)
-                    {
-                        continue;
-                    }
-
-                    var closestDistance = GetClosestBackgroundDistance(pixel, backgroundModel.Samples);
-                    if (closestDistance <= backgroundModel.Threshold)
-                    {
-                        pixel.A = 0;
-                        image[x, y] = pixel;
-                        continue;
-                    }
-
-                    // A slightly wider soft threshold for edge anti-aliasing against the green screen
-                    var softThreshold = backgroundModel.Threshold + 20d;
-                    if (closestDistance <= softThreshold)
-                    {
-                        var ratio = (closestDistance - backgroundModel.Threshold) / (softThreshold - backgroundModel.Threshold);
-                        var adjustedAlpha = (byte)Math.Clamp((int)Math.Round(ratio * 255d), 0, 255);
-                        if (adjustedAlpha < pixel.A)
-                        {
-                            pixel.A = adjustedAlpha;
-                            image[x, y] = pixel;
-                        }
-                    }
-                }
-            }
-        }
-
-        private static void KeepLargestForegroundComponent(Image<Rgba32> image, BackgroundModel backgroundModel)
-        {
-            var width = image.Width;
-            var height = image.Height;
-            var total = width * height;
-            if (total == 0)
-            {
-                return;
-            }
-
-            var visited = new bool[total];
-            var keepMask = new bool[total];
-            var bestComponent = Array.Empty<int>();
-
-            static int IndexOf(int x, int y, int imageWidth) => (y * imageWidth) + x;
-
-            var strictForegroundThreshold = backgroundModel.Threshold + 10d;
-
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    var startIndex = IndexOf(x, y, width);
-                    if (visited[startIndex])
-                    {
-                        continue;
-                    }
-
-                    var startPixel = image[x, y];
-                    if (!IsForegroundSeed(startPixel, backgroundModel.Samples, strictForegroundThreshold))
-                    {
-                        visited[startIndex] = true;
-                        continue;
-                    }
-
-                    var queue = new Queue<(int X, int Y)>();
-                    var component = new List<int>(capacity: 1024);
-
-                    visited[startIndex] = true;
-                    queue.Enqueue((x, y));
-
-                    while (queue.Count > 0)
-                    {
-                        var (cx, cy) = queue.Dequeue();
-                        var cIndex = IndexOf(cx, cy, width);
-                        component.Add(cIndex);
-
-                        TryVisit(cx - 1, cy);
-                        TryVisit(cx + 1, cy);
-                        TryVisit(cx, cy - 1);
-                        TryVisit(cx, cy + 1);
-                        
-                        // 8-way connectivity to prevent severed fins/tails
-                        TryVisit(cx - 1, cy - 1);
-                        TryVisit(cx + 1, cy - 1);
-                        TryVisit(cx - 1, cy + 1);
-                        TryVisit(cx + 1, cy + 1);
-                    }
-
-                    if (component.Count > bestComponent.Length)
-                    {
-                        bestComponent = component.ToArray();
-                    }
-
-                    void TryVisit(int nx, int ny)
-                    {
-                        if (nx < 0 || ny < 0 || nx >= width || ny >= height)
-                        {
-                            return;
-                        }
-
-                        var nIndex = IndexOf(nx, ny, width);
-                        if (visited[nIndex])
-                        {
-                            return;
-                        }
-
-                        visited[nIndex] = true;
-                        var pixel = image[nx, ny];
-                        if (IsForegroundSeed(pixel, backgroundModel.Samples, strictForegroundThreshold))
-                        {
-                            queue.Enqueue((nx, ny));
-                        }
-                    }
-                }
-            }
-
-            if (bestComponent.Length == 0)
-            {
-                return;
-            }
-
-            foreach (var index in bestComponent)
-            {
-                keepMask[index] = true;
-            }
-
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    var index = IndexOf(x, y, width);
-                    if (keepMask[index])
-                    {
-                        continue;
-                    }
-
-                    var pixel = image[x, y];
-                    if (pixel.A == 0)
-                    {
-                        continue;
-                    }
-
-                    pixel.A = 0;
-                    image[x, y] = pixel;
-                }
-            }
-        }
-
-        private static BackgroundModel BuildBackgroundModel(Image<Rgba32> image)
-        {
-            var width = image.Width;
-            var height = image.Height;
-            var sampleSize = Math.Max(8, Math.Min(width, height) / 8);
-
-            long totalR = 0;
-            long totalG = 0;
-            long totalB = 0;
-            long count = 0;
-
-            var cornerSamples = new List<Rgba32>(capacity: 4);
-
-            Rgba32 SampleBlock(int startX, int startY)
-            {
-                long blockR = 0;
-                long blockG = 0;
-                long blockB = 0;
-                long blockCount = 0;
-
-                for (var y = startY; y < Math.Min(startY + sampleSize, height); y++)
-                {
-                    for (var x = startX; x < Math.Min(startX + sampleSize, width); x++)
-                    {
-                        var pixel = image[x, y];
-                        if (pixel.A < 8)
-                        {
-                            continue;
-                        }
-
-                        blockR += pixel.R;
-                        blockG += pixel.G;
-                        blockB += pixel.B;
-                        blockCount++;
-
-                        totalR += pixel.R;
-                        totalG += pixel.G;
-                        totalB += pixel.B;
-                        count++;
-                    }
-                }
-
-                if (blockCount == 0)
-                {
-                    return new Rgba32(255, 255, 255, 255);
-                }
-
-                return new Rgba32(
-                    (byte)(blockR / blockCount),
-                    (byte)(blockG / blockCount),
-                    (byte)(blockB / blockCount),
-                    255);
-            }
-
-            cornerSamples.Add(SampleBlock(0, 0));
-            cornerSamples.Add(SampleBlock(Math.Max(0, width - sampleSize), 0));
-            cornerSamples.Add(SampleBlock(0, Math.Max(0, height - sampleSize)));
-            cornerSamples.Add(SampleBlock(Math.Max(0, width - sampleSize), Math.Max(0, height - sampleSize)));
-
-            if (count == 0)
-            {
-                var fallbackSample = new Rgba32(255, 255, 255, 255);
-                return new BackgroundModel(new[] { fallbackSample }, 64d);
-            }
-
-            var averageBackground = new Rgba32(
-                (byte)(totalR / count),
-                (byte)(totalG / count),
-                (byte)(totalB / count),
-                255);
-
-            var totalDistance = 0d;
-            var edgeCount = 0;
-            for (var x = 0; x < width; x++)
-            {
-                totalDistance += ColorDistance(image[x, 0], averageBackground);
-                totalDistance += ColorDistance(image[x, height - 1], averageBackground);
-                edgeCount += 2;
-            }
-
-            for (var y = 1; y < height - 1; y++)
-            {
-                totalDistance += ColorDistance(image[0, y], averageBackground);
-                totalDistance += ColorDistance(image[width - 1, y], averageBackground);
-                edgeCount += 2;
-            }
-
-            var averageEdgeDistance = edgeCount == 0 ? 0d : totalDistance / edgeCount;
-            // The AI often generates slightly noisy or compressed backgrounds, so a very tight threshold stops the floodfill early.
-            // Since the background is now a highly contrasting chroma-key green, we can afford a very wide threshold
-            // to swallow all the green AI noise without worrying about eating the fish (since fish aren't neon green).
-            var threshold = Math.Clamp(averageEdgeDistance + 45d, 55d, 120d);
-
-            cornerSamples.Add(averageBackground);
-            return new BackgroundModel(cornerSamples.ToArray(), threshold);
-        }
-
-        private static bool IsBackgroundPixel(Rgba32 pixel, BackgroundModel backgroundModel)
-        {
-            if (pixel.A < 8)
-            {
-                return true;
-            }
-
-            var closestDistance = GetClosestBackgroundDistance(pixel, backgroundModel.Samples);
-            return closestDistance <= backgroundModel.Threshold;
-        }
-
-        private static double GetClosestBackgroundDistance(Rgba32 pixel, IReadOnlyList<Rgba32> backgroundSamples)
-        {
-            var closestDistance = double.MaxValue;
-            foreach (var sample in backgroundSamples)
-            {
-                var distance = ColorDistance(pixel, sample);
-                if (distance < closestDistance)
-                {
-                    closestDistance = distance;
-                }
-            }
-
-            return closestDistance;
-        }
-
-        private static bool IsForegroundSeed(Rgba32 pixel, IReadOnlyList<Rgba32> backgroundSamples, double threshold)
-        {
-            if (pixel.A < 24)
-            {
-                return false;
-            }
-
-            return GetClosestBackgroundDistance(pixel, backgroundSamples) > threshold;
         }
 
         private static double ColorDistance(Rgba32 a, Rgba32 b)
@@ -797,8 +505,6 @@ namespace Hooked.Shared.Services.AI
             var dB = a.B - b.B;
             return Math.Sqrt((dR * dR) + (dG * dG) + (dB * dB));
         }
-
-        private readonly record struct BackgroundModel(Rgba32[] Samples, double Threshold);
 
         private static string Truncate(string value, int maxLength)
         {
@@ -816,8 +522,8 @@ namespace Hooked.Shared.Services.AI
                    $"The fish MUST be perfectly horizontal and level on the axis, not angled. " +
                    $"Strict full-body side profile view with the head facing left. " +
                    $"Anatomical and color traits MUST follow this description exactly: ({fishDescription}:1.3). " +
-                   $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, clean outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
-                   $"The fish must be isolated as a clean cutout on a bright, uniform chroma-key green background (#00FF00), with absolutely no shadows, no gradients, and no backdrop elements.";
+                   $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, thick continuous clean black outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
+                   $"The fish must be isolated as a clean cutout on a perfectly solid, pure white background (#FFFFFF), with absolutely no shadows, no gradients, and no backdrop elements.";
         }
 
         private static string BuildNegativePrompt()
@@ -825,7 +531,7 @@ namespace Hooked.Shared.Services.AI
             return "duplicate, clone, twin, reflection, mirrored, stacked, multiple fish, two fish, pair, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
                    "facing right, angled, diagonal, tilted, swimming up, swimming down, perspective, foreshortening, " +
                    "realistic, 3d, photograph, text, watermark, logo, deformed fish anatomy, " +
-                   "complicated shading, gradients, drop shadow, white background, gray background, blue background, magenta background, transparent background, checkerboard, underwater scene, seafloor, plants, bubbles";
+                   "complicated shading, gradients, drop shadow, green screen, blue background, transparent background, checkerboard, underwater scene, seafloor, plants, bubbles";
         }
     }
 }
