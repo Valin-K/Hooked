@@ -20,7 +20,22 @@ namespace Hooked.Web.Api
 
             group.MapGet("/catches/recent", async (ICatchService catchService) => Results.Ok(await catchService.GetRecentCatchesAsync())).WithName("GetRecentCatches");
 
-            // Elasticsearch-powered catch search (falls back to 404 when ES is not configured)
+            // Admin: force reindex all catches into Elasticsearch
+            group.MapPost("/search/reindex", async (
+                IElasticSearchService? elasticSearchService,
+                Hooked.Shared.Data.HookedDbContext db,
+                CancellationToken cancellationToken) =>
+            {
+                if (elasticSearchService is null)
+                    return Results.Problem("Elasticsearch is not configured.", statusCode: 503);
+
+                var catches = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                    .ToListAsync(db.CatchRecords, cancellationToken).ConfigureAwait(false);
+                await elasticSearchService.BulkReindexAsync(catches, cancellationToken).ConfigureAwait(false);
+                return Results.Ok(new { reindexed = catches.Count });
+            }).WithName("ReindexCatches");
+
+
             group.MapGet("/search/catches", async (
                 IElasticSearchService? elasticSearchService,
                 string? q,
