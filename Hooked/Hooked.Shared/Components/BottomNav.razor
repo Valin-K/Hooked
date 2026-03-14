@@ -3,31 +3,45 @@
 
 <nav class="bottom-nav">
     <a href="/" class="@GetNavItemClass("/")" title="Home">
-        <span class="nav-icon">@GetNavIcon("/", "⌂", "⌂")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/", "home", "home")' Size="18" />
+        </span>
         <div class="label">Home</div>
     </a>
     <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed">
-        <span class="nav-icon">@GetNavIcon("/feed", "◒", "◕")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/feed", "feed", "feed")' Size="18" />
+        </span>
         <div class="label">Feed</div>
     </a>
     <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish">
-        <span class="nav-icon">@GetNavIcon("/arscanner", "◎", "◉")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/arscanner", "scan", "scan")' Size="18" />
+        </span>
         <div class="label">Scan</div>
     </a>
     <a href="/map" class="@GetNavItemClass("/map")" title="Map">
-        <span class="nav-icon">@GetNavIcon("/map", "⌖", "🧭")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/map", "map", "compass")' Size="18" />
+        </span>
         <div class="label">Map</div>
     </a>
     <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary">
-        <span class="nav-icon">@GetNavIcon("/fishdex", "◍", "◉")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/fishdex", "fish", "book-open")' Size="18" />
+        </span>
         <div class="label">FishDex</div>
     </a>
     <a href="/leaderboard" class="@GetNavItemClass("/leaderboard")" title="Leaderboard">
-        <span class="nav-icon">@GetNavIcon("/leaderboard", "☆", "★")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/leaderboard", "trophy", "medal")' Size="18" />
+        </span>
         <div class="label">Ranks</div>
     </a>
     <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile">
-        <span class="nav-icon">@GetNavIcon("/profile", "◌", "◎")</span>
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/profile", "user", "user-circle")' Size="18" />
+        </span>
         <div class="label">Profile</div>
     </a>
 </nav>

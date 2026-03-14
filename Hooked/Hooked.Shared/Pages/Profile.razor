@@ -35,7 +35,9 @@
     {
         <section class="ocean-glass profile-summary">
             <div class="summary-top">
-                <div class="profile-avatar">◌</div>
+                <div class="profile-avatar" aria-hidden="true">
+                    <AppIcon Name="user-circle" Size="22" />
+                </div>
                 <div class="identity">
                     <h1>@DisplayNameFor(_profile.DisplayName, _profile.Username)</h1>
                     <div class="handle">@("@"+_profile.Username)</div>

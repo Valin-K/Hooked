@@ -18,6 +18,12 @@
     justify-content: space-between;
 }
 
+.map-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .map-wrap {
     position: relative;
     width: min(920px, 100% - 2rem);

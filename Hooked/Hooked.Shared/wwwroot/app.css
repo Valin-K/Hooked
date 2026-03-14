@@ -142,8 +142,8 @@ h1:focus {
 }
 
 /* ?? Mapbox SVG pin marker ?? */
-/* No filter/drop-shadow on the container — SVG handles its own shadow via <filter> or box-shadow */
-/* The element div is sized exactly PIN_W × PIN_H so anchor:'bottom' is pixel-perfect */
+/* No filter/drop-shadow on the container ï¿½ SVG handles its own shadow via <filter> or box-shadow */
+/* The element div is sized exactly PIN_W ï¿½ PIN_H so anchor:'bottom' is pixel-perfect */
 
 /* Popup ?? */
 .mapboxgl-popup-content {
@@ -212,7 +212,7 @@ h1:focus {
     margin-top: 0.1rem;
 }
 
-/* ?? Style toggle — rendered via Mapbox IControl in top-right slot ?? */
+/* ?? Style toggle ï¿½ rendered via Mapbox IControl in top-right slot ?? */
 .hk-style-ctrl {
     border-radius: 8px !important;
     overflow: hidden;
@@ -237,9 +237,10 @@ h1:focus {
     line-height: 1;
 }
 
-.hk-style-btn i {
-    font-size: 0.9rem;
-    line-height: 1;
+.hk-style-btn svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    display: block;
     flex-shrink: 0;
 }
 
@@ -247,7 +248,7 @@ h1:focus {
     background: rgba(14, 32, 70, 0.98);
 }
 
-/* ?? Species legend — lives in .map-wrap (outside overflow:hidden canvas) ?? */
+/* ?? Species legend ï¿½ lives in .map-wrap (outside overflow:hidden canvas) ?? */
 .hk-legend {
     position: absolute;
     bottom: 2.2rem;   /* above the scale bar */

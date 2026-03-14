@@ -14,7 +14,7 @@ window.hookedMap = (() => {
 
     const DEFAULT_COLOUR = { bg: '#69d8ff', border: '#0e7490', text: '#082f49' };
 
-    // SVG pin: 32 wide × 46 tall, geographic point = bottom-centre (16, 46)
+    // SVG pin: 32 wide ï¿½ 46 tall, geographic point = bottom-centre (16, 46)
     const PIN_W  = 32;
     const PIN_H  = 46;
 
@@ -43,6 +43,20 @@ window.hookedMap = (() => {
         </svg>`;
     }
 
+    function getStyleToggleIconSvg(iconName) {
+        if (iconName === 'map') {
+            return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5V4.5L15 7 9 4Z"></path>
+                        <path d="M9 4v13"></path>
+                        <path d="M15 7v12.5"></path>
+                    </svg>`;
+        }
+
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z"></path>
+                </svg>`;
+    }
+
     // ?? Style toggle as a proper Mapbox IControl ?????????????????????????????
     function makeStyleToggleControl(map) {
         const STYLES = {
@@ -61,10 +75,9 @@ window.hookedMap = (() => {
 
         function updateLabel() {
             const isDark = currentKey === 'dark';
-            // Lucide icon names: moon (dark mode), map (terrain mode)
             btn.innerHTML = isDark
-                ? `<i class="lucide-map" aria-hidden="true"></i><span>Terrain</span>`
-                : `<i class="lucide-moon" aria-hidden="true"></i><span>Dark</span>`;
+                ? `${getStyleToggleIconSvg('map')}<span>Terrain</span>`
+                : `${getStyleToggleIconSvg('moon')}<span>Dark</span>`;
         }
         updateLabel();
 
@@ -118,7 +131,7 @@ window.hookedMap = (() => {
         (map._hookedMarkers ?? []).forEach(m => m.remove());
         map._hookedMarkers = [];
 
-        // Legend lives outside the clipped map canvas — in the wrap overlay
+        // Legend lives outside the clipped map canvas ï¿½ in the wrap overlay
         const wrapEl  = document.getElementById(containerId)?.parentElement;
         const oldLegend = wrapEl?.querySelector('.hk-legend');
         if (oldLegend) oldLegend.remove();
@@ -155,13 +168,13 @@ window.hookedMap = (() => {
                     </div>
                 </div>`);
 
-            // Wrapper div — fixed size, NO transform or filter here (Mapbox owns the transform)
+            // Wrapper div ï¿½ fixed size, NO transform or filter here (Mapbox owns the transform)
             const el = document.createElement('div');
             el.style.cssText = `width:${PIN_W}px;height:${PIN_H}px;cursor:pointer`;
             el.title         = item.species;
             el.innerHTML     = makePinSvg(colour.bg, colour.border, colour.text, initial);
 
-            // Hover animates the SVG child, never the wrapper — preserves Mapbox's translate
+            // Hover animates the SVG child, never the wrapper ï¿½ preserves Mapbox's translate
             const svg = el.querySelector('svg');
             el.addEventListener('mouseenter', () => { svg.style.transform = 'translateY(-4px) scale(1.15)'; });
             el.addEventListener('mouseleave', () => { svg.style.transform = ''; });
