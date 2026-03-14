@@ -37,6 +37,9 @@ namespace Hooked.Shared.Data
         public DbSet<Post> Posts { get; set; } = null!;
         public DbSet<PostPhoto> PostPhotos { get; set; } = null!;
 
+        // Per-user earned achievements
+        public DbSet<UserAchievement> UserAchievements { get; set; } = null!;
+
         // Cached leaderboard entries (optional)
         public DbSet<LeaderboardEntry> LeaderboardEntries { get; set; } = null!;
 
@@ -160,6 +163,15 @@ namespace Hooked.Shared.Data
                 b.HasKey(p => p.Id);
                 b.HasOne(p => p.Post).WithMany(post => post.Photos).HasForeignKey(p => p.PostId).OnDelete(DeleteBehavior.Cascade);
                 b.Property(p => p.PhotoPath).HasMaxLength(512).IsRequired();
+            });
+
+            modelBuilder.Entity<UserAchievement>(b =>
+            {
+                b.HasKey(ua => new { ua.UserId, ua.AchievementId });
+                b.HasOne(ua => ua.User).WithMany(u => u.UserAchievements).HasForeignKey(ua => ua.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(ua => ua.Achievement).WithMany(a => a.UserAchievements).HasForeignKey(ua => ua.AchievementId).OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(ua => ua.UserId);
+                b.HasIndex(ua => ua.EarnedAt);
             });
 
             modelBuilder.Entity<LeaderboardEntry>(b =>

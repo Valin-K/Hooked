@@ -11,10 +11,12 @@ namespace Hooked.Shared.Services
     public sealed class SessionService : ISessionService
     {
         private readonly HookedDbContext _db;
+        private readonly IAchievementService _achievementService;
 
-        public SessionService(HookedDbContext db)
+        public SessionService(HookedDbContext db, IAchievementService achievementService)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
+            _achievementService = achievementService ?? throw new ArgumentNullException(nameof(achievementService));
         }
 
         public async Task<FishingSession> StartSessionAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -59,6 +61,11 @@ namespace Hooked.Shared.Services
             session.EndTime = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(cancellationToken);
+
+            await _achievementService
+                .CheckAndAwardAsync(session.UserId, cancellationToken)
+                .ConfigureAwait(false);
+
             return session;
         }
 

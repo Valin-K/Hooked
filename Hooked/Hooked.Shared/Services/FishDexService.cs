@@ -15,19 +15,23 @@ namespace Hooked.Shared.Services
         private readonly HookedDbContext _db;
         private readonly IGeminiFishSpeciesService _geminiFishSpeciesService;
         private readonly ILeonardoFishImageService _leonardoFishImageService;
+        private readonly IAchievementService _achievementService;
 
         public FishDexService(
             HookedDbContext db,
             IGeminiFishSpeciesService geminiFishSpeciesService,
-            ILeonardoFishImageService leonardoFishImageService)
+            ILeonardoFishImageService leonardoFishImageService,
+            IAchievementService achievementService)
         {
             ArgumentNullException.ThrowIfNull(db);
             ArgumentNullException.ThrowIfNull(geminiFishSpeciesService);
             ArgumentNullException.ThrowIfNull(leonardoFishImageService);
+            ArgumentNullException.ThrowIfNull(achievementService);
 
             _db = db;
             _geminiFishSpeciesService = geminiFishSpeciesService;
             _leonardoFishImageService = leonardoFishImageService;
+            _achievementService = achievementService;
         }
 
         public async Task<FishScanLogResultDto> ScanAndLogCatchAsync(Guid userId, FishScanLogRequestDto request, CancellationToken cancellationToken = default)
@@ -158,6 +162,10 @@ namespace Hooked.Shared.Services
 
             await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+            var newAchievements = await _achievementService
+                .CheckAndAwardAsync(userId, cancellationToken)
+                .ConfigureAwait(false);
+
             return new FishScanLogResultDto(
                 catchRecord.Id,
                 fishSpecies.Id,
@@ -166,7 +174,8 @@ namespace Hooked.Shared.Services
                 isNewGlobalSpecies,
                 isFirstCatchForUser,
                 isNewPersonalBest,
-                wasImageGenerated);
+                wasImageGenerated,
+                newAchievements);
         }
 
         public async Task<FishDexOverviewDto> GetFishDexOverviewAsync(Guid userId, CancellationToken cancellationToken = default)
