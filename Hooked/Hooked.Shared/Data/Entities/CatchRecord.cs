@@ -11,6 +11,7 @@ namespace Hooked.Shared.Data
         public DateTime CaughtAt { get; set; } = DateTime.UtcNow;
         public double? LengthMeters { get; set; }
         public double? WeightKg { get; set; }
+        public bool IsFavorite { get; set; }
         public string? PhotoPath { get; set; }
         public string? LocationJson { get; set; } // GeoJSON or simple lat/lon stored as JSON
         public Guid? FishingSessionId { get; set; }

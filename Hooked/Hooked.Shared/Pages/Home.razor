@@ -6,6 +6,7 @@
 @inject IUserService UserService
 @inject ISessionService SessionService
 @inject ISocialService SocialService
+@inject ILeaderboardService LeaderboardService
 
 <PageTitle>Hooked</PageTitle>
 
@@ -72,6 +73,11 @@
             <span class="ms-value">@longestCatchText</span>
             <span class="ms-label">Record</span>
         </div>
+    </section>
+    <section class="xp-week-card ocean-glass">
+        <div class="xp-week-heading">XP this week</div>
+        <div class="xp-week-value">@($"{weeklyXp:N0} XP")</div>
+        <div class="xp-week-subheading">Last 7 days</div>
     </section>
 
     <!-- Quick Links -->
@@ -186,6 +192,7 @@
     private string? loadErrorMessage;
     private int recentCatchCount;
     private int todayCatchCount;
+    private int weeklyXp;
     private string longestCatchText = "—";
 
     // ── Catches pagination ──────────────────────────────────────────
@@ -239,6 +246,15 @@
         {
             var currentUser = await SocialService.ResolveCurrentUserAsync();
             activeSession = await SessionService.GetActiveSessionAsync(currentUser.Id);
+            weeklyXp = 0;
+            try
+            {
+                weeklyXp = await LeaderboardService.GetUserWeeklyXpAsync(currentUser.Id);
+            }
+            catch
+            {
+                weeklyXp = 0;
+            }
 
             var fetched = await CatchService.GetRecentCatchesAsync(100);
             allCatches = fetched.ToList();

@@ -1,8 +1,12 @@
 @page "/profile"
 @page "/profile/{Username}"
+@using Hooked.Shared.Data
 @using Hooked.Shared.Services
 @inject ISocialService SocialService
 @inject IAchievementService AchievementService
+@inject ICatchService CatchService
+@inject IProgressionService ProgressionService
+@inject IFishingQuestService FishingQuestService
 @inject NavigationManager NavigationManager
 
 <PageTitle>@GetPageTitle()</PageTitle>
@@ -68,6 +72,112 @@
                 </button>
             }
         </section>
+
+        @if (!IsViewingOtherUser)
+        {
+            <section class="profile-progression">
+                @if (_isProgressionLoading)
+                {
+                    <article class="ocean-glass progression-card">
+                        <p class="muted">Loading progression…</p>
+                    </article>
+                }
+                else if (!string.IsNullOrWhiteSpace(_progressionError))
+                {
+                    <article class="ocean-glass progression-card">
+                        <h2>Progression unavailable</h2>
+                        <p class="muted">@_progressionError</p>
+                        <button class="action secondary" type="button" @onclick="ReloadProgressionAsync">Retry progression</button>
+                    </article>
+                }
+                else if (_progressionOverview is not null)
+                {
+                    <article class="ocean-glass progression-card">
+                        <header class="progression-heading">
+                            <h2>Overall XP</h2>
+                            <span class="xp-total">@_progressionOverview.OverallTotalXpEarned XP</span>
+                        </header>
+
+                        <p class="muted progression-subtitle">@_progressionOverview.PrimarySkillName · Level @_progressionOverview.CurrentLevel</p>
+
+                        <div class="xp-progress">
+                            <div class="xp-progress-track">
+                                <div class="xp-progress-fill" style="width: @GetXpProgressPercent(_progressionOverview)%"></div>
+                            </div>
+                            <div class="xp-progress-label">@GetXpProgressLabel(_progressionOverview)</div>
+                        </div>
+                    </article>
+
+                    <article class="ocean-glass quest-board">
+                        <header class="quest-board-heading">
+                            <h2>Quests</h2>
+                            <span class="muted">@_activeQuests.Count total</span>
+                        </header>
+
+                        <div class="quest-cadence-groups">
+                            @foreach (var cadence in QuestCadenceDisplayOrder)
+                            {
+                                var cadenceQuests = GetQuestsByCadence(cadence);
+                                <section class="quest-cadence-group">
+                                    <h3>@GetCadenceLabel(cadence)</h3>
+
+                                    @if (cadenceQuests.Count == 0)
+                                    {
+                                        <p class="muted cadence-empty">No @(GetCadenceLabel(cadence).ToLowerInvariant()) quests right now.</p>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var quest in cadenceQuests)
+                                        {
+                                            <article class="quest-item">
+                                                <div class="quest-item-head">
+                                                    <div>
+                                                        <h4>@quest.QuestName</h4>
+                                                        @if (!string.IsNullOrWhiteSpace(quest.QuestDescription))
+                                                        {
+                                                            <p class="muted quest-description">@quest.QuestDescription</p>
+                                                        }
+                                                    </div>
+                                                    <span class="quest-reward">+@quest.RewardXp XP</span>
+                                                </div>
+
+                                                <div class="quest-progress">
+                                                    <div class="quest-progress-track">
+                                                        <div class="quest-progress-fill" style="width: @GetQuestProgressPercent(quest)%"></div>
+                                                    </div>
+                                                    <div class="quest-progress-meta">
+                                                        <span>@Math.Min(quest.ProgressCount, quest.TargetCount) / @quest.TargetCount</span>
+                                                        <span class="quest-status">@GetQuestStatusLabel(quest)</span>
+                                                    </div>
+                                                </div>
+
+                                                @if (quest.CanClaimReward)
+                                                {
+                                                    <button class="action primary quest-claim-button"
+                                                            type="button"
+                                                            disabled="@_claimBusyQuestIds.Contains(quest.UserQuestProgressId)"
+                                                            @onclick="() => ClaimQuestRewardAsync(quest.UserQuestProgressId)">
+                                                        Claim +@quest.RewardXp XP
+                                                    </button>
+                                                }
+                                            </article>
+                                        }
+                                    }
+                                </section>
+                            }
+                        </div>
+                    </article>
+                }
+                else
+                {
+                    <article class="ocean-glass progression-card">
+                        <h2>Progression unavailable</h2>
+                        <p class="muted">Progression data could not be loaded.</p>
+                        <button class="action secondary" type="button" @onclick="ReloadProgressionAsync">Retry progression</button>
+                    </article>
+                }
+            </section>
+        }
 
         @if (!string.IsNullOrWhiteSpace(_actionError))
         {
@@ -180,6 +290,15 @@
                             </div>
 
                             <div class="catch-actions">
+                                @if (!IsViewingOtherUser)
+                                {
+                                    <button class="action @GetFavoriteActionClass(catchItem) profile-action-button"
+                                            type="button"
+                                            disabled="@_favoriteBusyCatchIds.Contains(catchItem.CatchId)"
+                                            @onclick="() => ToggleFavoriteAsync(catchItem.CatchId)">
+                                        @(catchItem.IsFavorite ? "★ Favorite" : "☆ Favorite")
+                                    </button>
+                                }
                                 <button class="action @GetReactionActionClass(catchItem) profile-action-button"
                                         type="button"
                                         disabled="@_reactionBusyCatchIds.Contains(catchItem.CatchId)"
@@ -258,6 +377,7 @@
 
     private SocialUserLookupDto? _currentUser;
     private SocialProfileSummaryDto? _profile;
+    private ProgressionOverviewDto? _progressionOverview;
     private List<ProfileCatchItem> _catchItems = [];
     private List<AchievementStatusDto> _earned = [];
     private List<AchievementStatusDto> _locked = [];
@@ -266,10 +386,21 @@
     private readonly HashSet<Guid> _reactionBusyCatchIds = [];
     private readonly HashSet<Guid> _commentBusyCatchIds = [];
     private readonly HashSet<Guid> _deleteBusyCommentIds = [];
+    private List<FishingQuestProgressDto> _activeQuests = [];
+    private readonly HashSet<Guid> _favoriteBusyCatchIds = [];
+    private readonly HashSet<Guid> _claimBusyQuestIds = [];
+    private static readonly QuestCadence[] QuestCadenceDisplayOrder =
+    [
+        QuestCadence.Daily,
+        QuestCadence.Weekly,
+        QuestCadence.Monthly
+    ];
     private bool _isLoading = true;
+    private bool _isProgressionLoading;
     private bool _isFollowBusy;
     private string? _loadError;
     private string? _actionError;
+    private string? _progressionError;
 
     private bool IsViewingOtherUser =>
         _currentUser is not null &&
@@ -288,6 +419,10 @@
         _loadError = null;
         _actionError = null;
         _profile = null;
+        _progressionOverview = null;
+        _activeQuests = [];
+        _progressionError = null;
+        _isProgressionLoading = false;
         _catchItems = [];
         _earned = [];
         _locked = [];
@@ -295,6 +430,8 @@
         _commentDrafts.Clear();
         _reactionBusyCatchIds.Clear();
         _commentBusyCatchIds.Clear();
+        _favoriteBusyCatchIds.Clear();
+        _claimBusyQuestIds.Clear();
         _deleteBusyCommentIds.Clear();
 
         try
@@ -318,6 +455,11 @@
                 var all = await AchievementService.GetAllWithStatusAsync(_profile.UserId);
                 _earned = all.Where(a => a.IsEarned).OrderBy(a => a.EarnedAt).ToList();
                 _locked = all.Where(a => !a.IsEarned).ToList();
+
+                if (_profile.UserId == _currentUser.Id)
+                {
+                    await LoadProgressionDataAsync(_currentUser.Id);
+                }
             }
         }
         catch (Exception ex)
@@ -333,6 +475,70 @@
     private async Task ReloadAsync()
     {
         await LoadProfileAsync();
+    }
+
+    private async Task ReloadProgressionAsync()
+    {
+        if (_currentUser is null || _profile is null || _profile.UserId != _currentUser.Id)
+        {
+            return;
+        }
+
+        await LoadProgressionDataAsync(_currentUser.Id);
+    }
+
+    private async Task LoadProgressionDataAsync(Guid userId)
+    {
+        _isProgressionLoading = true;
+        _progressionError = null;
+
+        try
+        {
+            var progressionTask = ProgressionService.GetProgressionOverviewAsync(userId);
+            var questsTask = FishingQuestService.GetActiveQuestsAsync(userId);
+            await Task.WhenAll(progressionTask, questsTask);
+
+            _progressionOverview = progressionTask.Result;
+            _activeQuests = questsTask.Result
+                .OrderBy(quest => quest.Cadence)
+                .ThenBy(quest => quest.QuestName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _progressionOverview = null;
+            _activeQuests = [];
+            _progressionError = ex.Message;
+        }
+        finally
+        {
+            _isProgressionLoading = false;
+        }
+    }
+
+    private async Task ClaimQuestRewardAsync(Guid userQuestProgressId)
+    {
+        if (_currentUser is null || _claimBusyQuestIds.Contains(userQuestProgressId))
+        {
+            return;
+        }
+
+        _actionError = null;
+        _claimBusyQuestIds.Add(userQuestProgressId);
+
+        try
+        {
+            await FishingQuestService.ClaimRewardAsync(_currentUser.Id, userQuestProgressId);
+            await LoadProgressionDataAsync(_currentUser.Id);
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _claimBusyQuestIds.Remove(userQuestProgressId);
+        }
     }
 
     private async Task ToggleFollowAsync()
@@ -405,6 +611,37 @@
         finally
         {
             _reactionBusyCatchIds.Remove(catchId);
+        }
+    }
+
+    private async Task ToggleFavoriteAsync(Guid catchId)
+    {
+        if (_currentUser is null || _favoriteBusyCatchIds.Contains(catchId))
+        {
+            return;
+        }
+
+        var catchItem = _catchItems.FirstOrDefault(c => c.CatchId == catchId);
+        if (catchItem is null)
+        {
+            return;
+        }
+
+        _actionError = null;
+        _favoriteBusyCatchIds.Add(catchId);
+
+        try
+        {
+            await CatchService.SetCatchFavoriteAsync(catchId, _currentUser.Id, !catchItem.IsFavorite);
+            catchItem.IsFavorite = !catchItem.IsFavorite;
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _favoriteBusyCatchIds.Remove(catchId);
         }
     }
 
@@ -494,6 +731,7 @@
             ReactionCount = dto.ReactionCount,
             CommentCount = dto.CommentCount,
             ViewerHasReacted = dto.ViewerHasReacted,
+            IsFavorite = dto.IsFavorite,
             RecentComments = NormalizeRecentComments(dto.RecentComments)
         };
     }
@@ -537,6 +775,11 @@
         return catchItem.ViewerHasReacted ? "primary" : "secondary";
     }
 
+    private string GetFavoriteActionClass(ProfileCatchItem catchItem)
+    {
+        return catchItem.IsFavorite ? "primary" : "secondary";
+    }
+
     private string GetProfileRoute(string username)
     {
         if (string.IsNullOrWhiteSpace(username))
@@ -566,6 +809,75 @@
     {
         return !_commentBusyCatchIds.Contains(catchId) &&
                !string.IsNullOrWhiteSpace(GetCommentDraft(catchId));
+    }
+
+    private List<FishingQuestProgressDto> GetQuestsByCadence(QuestCadence cadence)
+    {
+        return _activeQuests
+            .Where(quest => quest.Cadence == cadence)
+            .ToList();
+    }
+
+    private static string GetCadenceLabel(QuestCadence cadence)
+    {
+        return cadence switch
+        {
+            QuestCadence.Daily => "Daily",
+            QuestCadence.Weekly => "Weekly",
+            QuestCadence.Monthly => "Monthly",
+            _ => "Other"
+        };
+    }
+
+    private static int GetQuestProgressPercent(FishingQuestProgressDto quest)
+    {
+        if (quest.TargetCount <= 0)
+        {
+            return 0;
+        }
+
+        var progress = Math.Min(quest.ProgressCount, quest.TargetCount);
+        return Math.Clamp((int)Math.Round((progress / (double)quest.TargetCount) * 100), 0, 100);
+    }
+
+    private static string GetQuestStatusLabel(FishingQuestProgressDto quest)
+    {
+        if (quest.RewardClaimedAtUtc.HasValue)
+        {
+            return "Claimed";
+        }
+
+        if (quest.CanClaimReward)
+        {
+            return "Ready to claim";
+        }
+
+        return "In progress";
+    }
+
+    private static int GetXpProgressPercent(ProgressionOverviewDto progression)
+    {
+        if (progression.IsAtMaxLevel)
+        {
+            return 100;
+        }
+
+        if (progression.XpRequiredForNextLevel <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp((int)Math.Round((progression.CurrentXp / (double)progression.XpRequiredForNextLevel) * 100), 0, 100);
+    }
+
+    private static string GetXpProgressLabel(ProgressionOverviewDto progression)
+    {
+        if (progression.IsAtMaxLevel)
+        {
+            return "Max level reached";
+        }
+
+        return $"{progression.CurrentXp}/{progression.XpRequiredForNextLevel} XP to next level";
     }
 
     private void GoHome()
@@ -604,6 +916,7 @@
         public int ReactionCount { get; set; }
         public int CommentCount { get; set; }
         public bool ViewerHasReacted { get; set; }
+        public bool IsFavorite { get; set; }
         public List<SocialCommentDto> RecentComments { get; set; } = [];
     }
 }

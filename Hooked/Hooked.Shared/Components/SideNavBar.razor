@@ -48,6 +48,7 @@
 
 @code {
     private bool _isDarkMode = true;
+    private bool _isDisposed;
     private int _unreadCount;
     private Guid _currentUserId;
 
@@ -92,14 +93,26 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (!firstRender || _isDisposed)
         {
             return;
         }
 
-        var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
-        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
-        StateHasChanged();
+        try
+        {
+            var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
+            _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+            if (!_isDisposed)
+            {
+                StateHasChanged();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task ToggleThemeAsync()
@@ -150,15 +163,24 @@
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        InvokeAsync(async () =>
+        if (_isDisposed)
         {
-            await LoadUnreadCountAsync().ConfigureAwait(false);
-            StateHasChanged();
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            if (!_isDisposed)
+            {
+                await LoadUnreadCountAsync().ConfigureAwait(false);
+                StateHasChanged();
+            }
         });
     }
 
     public void Dispose()
     {
+        _isDisposed = true;
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 

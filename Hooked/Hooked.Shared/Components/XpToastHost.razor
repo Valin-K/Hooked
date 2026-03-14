@@ -1,0 +1,143 @@
+@implements IDisposable
+@inject Hooked.Shared.Services.IXpNotificationService XpNotifications
+
+@if (_toasts.Count > 0)
+{
+    <div class="xp-toast-host" aria-live="polite" aria-atomic="false">
+        @foreach (var toast in _toasts)
+        {
+            <section class="xp-toast ocean-glass @(toast.LeveledUp ? "leveled-up" : string.Empty)">
+                <div class="xp-toast-header">
+                    <span class="xp-toast-pill">+@toast.AwardedXp XP</span>
+                    @if (toast.LeveledUp)
+                    {
+                        <span class="xp-toast-level-pill">LEVEL UP</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(toast.ContextText))
+                {
+                    <div class="xp-toast-context">@toast.ContextText</div>
+                }
+
+                @if (toast.LeveledUp)
+                {
+                    <div class="xp-toast-level-text">
+                        You're now level @toast.NewLevel.
+                    </div>
+                }
+            </section>
+        }
+    </div>
+}
+
+@code {
+    private const int MaxVisibleToasts = 5;
+    private static readonly TimeSpan DefaultDismissDelay = TimeSpan.FromSeconds(4.25);
+    private static readonly TimeSpan LevelUpDismissDelay = TimeSpan.FromSeconds(6.5);
+
+    private readonly List<XpToastItem> _toasts = [];
+    private readonly Dictionary<Guid, CancellationTokenSource> _dismissTimers = [];
+    private bool _isDisposed;
+
+    protected override void OnInitialized()
+    {
+        XpNotifications.NotificationPublished += OnNotificationPublished;
+    }
+
+    private void OnNotificationPublished(object? sender, Hooked.Shared.Services.XpAwardNotification notification)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(() =>
+        {
+            EnqueueToast(notification);
+            StateHasChanged();
+        });
+    }
+
+    private void EnqueueToast(Hooked.Shared.Services.XpAwardNotification notification)
+    {
+        var contextText = !string.IsNullOrWhiteSpace(notification.Reason)
+            ? notification.Reason
+            : notification.Context;
+
+        var toast = new XpToastItem(
+            notification.Id == Guid.Empty ? Guid.NewGuid() : notification.Id,
+            notification.AwardedXp,
+            contextText,
+            notification.NewLevel,
+            notification.LeveledUp);
+
+        _toasts.Insert(0, toast);
+        while (_toasts.Count > MaxVisibleToasts)
+        {
+            RemoveToast(_toasts[^1].Id);
+        }
+
+        var timer = new CancellationTokenSource();
+        _dismissTimers[toast.Id] = timer;
+
+        var delay = toast.LeveledUp ? LevelUpDismissDelay : DefaultDismissDelay;
+        _ = DismissAfterDelayAsync(toast.Id, delay, timer.Token);
+    }
+
+    private async Task DismissAfterDelayAsync(Guid id, TimeSpan delay, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            RemoveToast(id);
+            StateHasChanged();
+        });
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        _toasts.RemoveAll(toast => toast.Id == id);
+
+        if (_dismissTimers.Remove(id, out var timer))
+        {
+            timer.Cancel();
+            timer.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+        XpNotifications.NotificationPublished -= OnNotificationPublished;
+
+        foreach (var timer in _dismissTimers.Values)
+        {
+            timer.Cancel();
+            timer.Dispose();
+        }
+
+        _dismissTimers.Clear();
+        _toasts.Clear();
+    }
+
+    private sealed record XpToastItem(
+        Guid Id,
+        int AwardedXp,
+        string? ContextText,
+        int NewLevel,
+        bool LeveledUp);
+}
