@@ -3,14 +3,12 @@
 @using Microsoft.JSInterop
 @inject IMapService MapService
 @inject IJSRuntime JS
-@inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 
 <PageTitle>Explore Map · Hooked</PageTitle>
 
 <div class="mobile-shell map-shell">
     <TopNavBar Subtitle="Catch Hotspots" />
-
     @if (!string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) &&
          !MapService.MapboxAccessToken.StartsWith("YOUR_"))
     {
@@ -80,7 +78,7 @@
         </section>
     }
 
-    <bottom-nav />
+    <BottomNav />
 </div>
 
 @code {
