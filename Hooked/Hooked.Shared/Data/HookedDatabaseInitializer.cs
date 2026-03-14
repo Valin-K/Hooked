@@ -1,16 +1,18 @@
 using Microsoft.EntityFrameworkCore;
+using Hooked.Shared.Services.Search;
 
 namespace Hooked.Shared.Data
 {
     internal sealed class HookedDatabaseInitializer : IHookedDatabaseInitializer
     {
         private readonly HookedDbContext _dbContext;
+        private readonly IElasticSearchService? _elastic;
 
-        public HookedDatabaseInitializer(HookedDbContext dbContext)
+        public HookedDatabaseInitializer(HookedDbContext dbContext, IElasticSearchService? elastic = null)
         {
             ArgumentNullException.ThrowIfNull(dbContext);
-
             _dbContext = dbContext;
+            _elastic = elastic;
         }
 
         public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -30,14 +32,30 @@ namespace Hooked.Shared.Data
                 await _dbContext.Database.EnsureCreatedAsync(cancellationToken);
             }
 
-            await SeedDemoDataAsync(cancellationToken);
+            var seeded = await SeedDemoDataAsync(cancellationToken);
+
+            // Bulk reindex into Elasticsearch after a fresh seed so all demo catches are searchable
+            if (seeded && _elastic is not null)
+            {
+                try
+                {
+                    var catches = await _dbContext.CatchRecords.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+                    await _elastic.BulkReindexAsync(catches, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    // Non-fatal — the app still works without Elasticsearch
+                    Console.Error.WriteLine($"[Elasticsearch] Bulk reindex failed: {ex.Message}");
+                }
+            }
         }
 
-        private async Task SeedDemoDataAsync(CancellationToken cancellationToken)
+        /// <returns>true if data was seeded, false if already seeded.</returns>
+        private async Task<bool> SeedDemoDataAsync(CancellationToken cancellationToken)
         {
             if (await _dbContext.Users.AnyAsync(cancellationToken).ConfigureAwait(false))
             {
-                return;
+                return false;
             }
 
             var now = DateTime.UtcNow;
@@ -189,6 +207,7 @@ namespace Hooked.Shared.Data
             _dbContext.FishDexEntries.AddRange(fishDexEntries);
 
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return true;
         }
     }
 }
