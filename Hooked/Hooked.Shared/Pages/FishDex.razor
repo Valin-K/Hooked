@@ -1,0 +1,190 @@
+@page "/fishdex"
+@using Hooked.Shared.Services
+@inject IFishDexService FishDexService
+@inject ISocialService SocialService
+@inject NavigationManager NavigationManager
+
+<PageTitle>FishDex</PageTitle>
+
+<div class="mobile-shell fishdex-shell">
+    <TopNavBar Subtitle="Species Collection" />
+
+    @if (_isLoading)
+    {
+        <section class="ocean-glass fishdex-state">
+            <p class="muted">Loading FishDex…</p>
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <section class="ocean-glass fishdex-state">
+            <h1>FishDex unavailable</h1>
+            <p class="muted">@_loadError</p>
+            <button class="action secondary" type="button" @onclick="LoadAsync">Retry</button>
+        </section>
+    }
+    else
+    {
+        <section class="ocean-glass fishdex-header-card">
+            <div>
+                <div class="badge-pill">Community Species</div>
+                <h1>FishDex</h1>
+                <p class="muted">Species discovered by anglers become visible for everyone. Catch one to unlock it in your own FishDex.</p>
+            </div>
+            <button class="action primary" type="button" @onclick="OpenScanner">Scan Catch</button>
+        </section>
+
+        <section class="stats-grid fishdex-stats">
+            <article class="stat-card ocean-glass">
+                <div class="stat-label">Discovered Species</div>
+                <div class="stat-value">@_discoveredSpeciesCount</div>
+            </article>
+            <article class="stat-card ocean-glass">
+                <div class="stat-label">Unlocked by You</div>
+                <div class="stat-value">@_unlockedSpeciesCount</div>
+            </article>
+            <article class="stat-card ocean-glass">
+                <div class="stat-label">Completion</div>
+                <div class="stat-value">@_completionPercentText</div>
+            </article>
+        </section>
+
+        @if (_speciesCards.Count == 0)
+        {
+            <section class="ocean-glass fishdex-state">
+                <p class="muted">No species have been discovered yet. Be the first to scan and log one.</p>
+            </section>
+        }
+        else
+        {
+            <section class="fishdex-grid">
+                @foreach (var speciesCard in _speciesCards)
+                {
+                    var cardClass = speciesCard.IsUnlocked ? "fish-card unlocked" : "fish-card locked";
+
+                    <article class="ocean-glass @cardClass">
+                        <div class="fish-image-shell">
+                            @if (!string.IsNullOrWhiteSpace(speciesCard.IllustrationImageUrl))
+                            {
+                                <img src="@speciesCard.IllustrationImageUrl"
+                                     alt="@speciesCard.CommonName"
+                                     class="fish-image" />
+                            }
+                            else
+                            {
+                                <div class="fish-image-fallback">◉</div>
+                            }
+                        </div>
+
+                        <div class="fish-card-content">
+                            <div class="fish-name-row">
+                                <h2>@speciesCard.CommonName</h2>
+                                <span class="unlock-chip">@(speciesCard.IsUnlocked ? "Unlocked" : "Locked")</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(speciesCard.ScientificName) && speciesCard.IsUnlocked)
+                            {
+                                <div class="fish-scientific">@speciesCard.ScientificName</div>
+                            }
+
+                            @if (speciesCard.IsUnlocked)
+                            {
+                                <div class="fish-stats">
+                                    <span>@speciesCard.CatchCount catches</span>
+                                    <span>@FormatPersonalBest(speciesCard.PersonalBestLengthMeters)</span>
+                                </div>
+
+                                <details class="fish-catches-details">
+                                    <summary>View catches</summary>
+
+                                    @if (speciesCard.Catches.Count == 0)
+                                    {
+                                        <p class="muted">No catches logged for this species yet.</p>
+                                    }
+                                    else
+                                    {
+                                        <ul class="fish-catches-list">
+                                            @foreach (var fishCatch in speciesCard.Catches)
+                                            {
+                                                <li>
+                                                    <span>@fishCatch.CaughtAt.ToLocalTime().ToString("g")</span>
+                                                    <span>@FormatLength(fishCatch.LengthMeters)</span>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </details>
+                            }
+                            else
+                            {
+                                <p class="muted">Catch this species to reveal details and your personal records.</p>
+                            }
+                        </div>
+                    </article>
+                }
+            </section>
+        }
+    }
+
+    <bottom-nav />
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _loadError;
+    private List<FishDexSpeciesCardDto> _speciesCards = [];
+    private int _discoveredSpeciesCount;
+    private int _unlockedSpeciesCount;
+    private string _completionPercentText = "0%";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _loadError = null;
+
+        try
+        {
+            var currentUser = await SocialService.ResolveCurrentUserAsync();
+            var fishDexOverview = await FishDexService.GetFishDexOverviewAsync(currentUser.Id);
+
+            _speciesCards = fishDexOverview.Species.ToList();
+            _discoveredSpeciesCount = _speciesCards.Count;
+            _unlockedSpeciesCount = _speciesCards.Count(species => species.IsUnlocked);
+            _completionPercentText = _discoveredSpeciesCount == 0
+                ? "0%"
+                : $"{Math.Round((_unlockedSpeciesCount * 100.0) / _discoveredSpeciesCount):0}%";
+        }
+        catch (Exception ex)
+        {
+            _speciesCards = [];
+            _discoveredSpeciesCount = 0;
+            _unlockedSpeciesCount = 0;
+            _completionPercentText = "0%";
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenScanner()
+    {
+        NavigationManager.NavigateTo("/arscanner");
+    }
+
+    private static string FormatLength(double? lengthMeters)
+    {
+        return lengthMeters.HasValue ? $"{lengthMeters.Value:F2} m" : "Length —";
+    }
+
+    private static string FormatPersonalBest(double? personalBestLengthMeters)
+    {
+        return personalBestLengthMeters.HasValue ? $"PB {personalBestLengthMeters.Value:F2} m" : "PB —";
+    }
+}
