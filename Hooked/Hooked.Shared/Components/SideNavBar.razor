@@ -1,0 +1,121 @@
+@implements IDisposable
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<aside class="side-nav ocean-glass" aria-label="Primary navigation">
+    <a href="/" class="side-nav-brand" title="Hooked" aria-label="Hooked home">
+        <AppIcon Name="fish" Size="18" />
+    </a>
+
+    <nav class="side-nav-links" aria-label="Main routes">
+        @foreach (var item in NavItems)
+        {
+            <a href="@item.Href"
+               class="@GetNavItemClass(item.Href)"
+               title="@item.Label"
+               aria-label="@item.Label">
+                <span class="side-nav-icon" aria-hidden="true">
+                    <AppIcon Name='@GetNavIcon(item.Href, item.DefaultIcon, item.ActiveIcon)' Size="19" />
+                </span>
+            </a>
+        }
+    </nav>
+
+    <button class="ghost-icon side-theme-toggle"
+            type="button"
+            aria-label="@GetThemeButtonTitle()"
+            title="@GetThemeButtonTitle()"
+            @onclick="ToggleThemeAsync">
+        <AppIcon Name="@GetThemeButtonIcon()" Size="18" />
+    </button>
+</aside>
+
+@code {
+    private bool _isDarkMode = true;
+
+    private static readonly IReadOnlyList<NavItem> NavItems =
+    [
+        new("/", "Home", "home", "home"),
+        new("/feed", "Feed", "feed", "feed"),
+        new("/arscanner", "Scan", "scan", "scan"),
+        new("/map", "Map", "map", "compass"),
+        new("/fishdex", "FishDex", "fish", "book-open"),
+        new("/leaderboard", "Leaderboard", "trophy", "medal"),
+        new("/profile", "Profile", "user", "user-circle")
+    ];
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
+        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+        StateHasChanged();
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        var theme = await JS.InvokeAsync<string>("hookedTheme.toggleTheme");
+        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetThemeButtonIcon() => _isDarkMode ? "sun" : "moon";
+
+    private string GetThemeButtonTitle() => _isDarkMode ? "Switch to light mode" : "Switch to dark mode";
+
+    private string GetNavItemClass(string href)
+    {
+        return IsRouteActive(href)
+            ? "side-nav-link active"
+            : "side-nav-link";
+    }
+
+    private string GetNavIcon(string href, string defaultIcon, string activeIcon)
+    {
+        return IsRouteActive(href)
+            ? activeIcon
+            : defaultIcon;
+    }
+
+    private bool IsRouteActive(string href)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var currentPath = $"/{relativePath.Split('?', '#')[0]}".TrimEnd('/');
+        var normalizedHref = href.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(currentPath))
+        {
+            currentPath = "/";
+        }
+
+        if (string.IsNullOrEmpty(normalizedHref))
+        {
+            normalizedHref = "/";
+        }
+
+        return normalizedHref == "/"
+            ? currentPath.Equals("/", StringComparison.OrdinalIgnoreCase)
+            : currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase) ||
+              currentPath.StartsWith($"{normalizedHref}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    private sealed record NavItem(string Href, string Label, string DefaultIcon, string ActiveIcon);
+}

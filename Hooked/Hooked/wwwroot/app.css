@@ -2,18 +2,37 @@
     display: none;
 }
 
+.bottom-safe-area {
+    display: none;
+}
+
 @supports (-webkit-touch-callout: none) {
+    html,
+    body {
+        background-color: var(--safe-area-bg, var(--ocean-0, #030712));
+        background-attachment: scroll;
+    }
+
     .status-bar-safe-area {
         display: flex;
         position: sticky;
         top: 0;
         height: env(safe-area-inset-top);
-        background-color: #f7f7f7;
+        background-color: var(--safe-area-bg, var(--ocean-0, #030712));
         width: 100%;
         z-index: 1;
     }
 
+    .bottom-safe-area {
+        display: block;
+        height: env(safe-area-inset-bottom);
+        background-color: var(--safe-area-bg, var(--ocean-0, #030712));
+        width: 100%;
+        flex-shrink: 0;
+    }
+
     .flex-column, .navbar-brand {
         padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
     }
 }

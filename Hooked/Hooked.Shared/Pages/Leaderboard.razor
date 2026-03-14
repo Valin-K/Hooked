@@ -3,11 +3,9 @@
 @inject ILeaderboardService LeaderboardService
 @inject ISocialService SocialService
 
-<PageTitle>Leaderboard · Hooked</PageTitle>
+<PageTitle>Leaderboard ï¿½ Hooked</PageTitle>
 
 <div class="mobile-shell leaderboard-shell">
-    <TopNavBar Subtitle="Top Anglers" />
-
     <div class="lb-filters ocean-glass">
         <div class="filter-group">
             <button class="filter-pill @(metric == LeaderboardMetric.MostCaught ? "active" : "")"
@@ -37,7 +35,7 @@
 
     @if (_isLoading)
     {
-        <section class="lb-state ocean-glass">Loading leaderboard…</section>
+        <section class="lb-state ocean-glass">Loading leaderboardï¿½</section>
     }
     else if (_loadError is not null)
     {
@@ -48,7 +46,7 @@
         <section class="lb-state ocean-glass">
             @if (scope == LeaderboardScope.Friends)
             {
-                <span>No friends data yet — follow some anglers to see them here.</span>
+                <span>No friends data yet ï¿½ follow some anglers to see them here.</span>
             }
             else
             {
@@ -79,7 +77,7 @@
         </ol>
     }
 
-    <bottom-nav />
+    <BottomNav />
 </div>
 
 @code {
@@ -101,7 +99,7 @@
         }
         catch
         {
-            // non-fatal — leaderboard still works without a current user
+            // non-fatal ï¿½ leaderboard still works without a current user
         }
 
         await LoadAsync();
