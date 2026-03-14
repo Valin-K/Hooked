@@ -1,73 +1,109 @@
-::deep nav.bottom-nav {
+nav.bottom-nav {
     position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 1rem;
-    width: min(95vw, 30rem);
-    display: flex;
-    gap: 0.4rem;
-    justify-content: space-between;
-    padding: 0.45rem;
+    left: max(env(safe-area-inset-left, 0px), 0.8rem);
+    right: max(env(safe-area-inset-right, 0px), 0.8rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.85rem);
+    width: min(
+        30rem,
+        calc(
+            100vw - max(env(safe-area-inset-left, 0px), 0.8rem) -
+            max(env(safe-area-inset-right, 0px), 0.8rem)
+        )
+    );
+    margin-inline: auto;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.32rem;
+    align-items: center;
+    padding: 0.5rem;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: linear-gradient(155deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
-    backdrop-filter: blur(26px) saturate(140%);
-    -webkit-backdrop-filter: blur(26px) saturate(140%);
-    box-shadow: 0 16px 46px rgba(2, 8, 20, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: linear-gradient(155deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1));
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    box-shadow: 0 14px 36px rgba(2, 8, 20, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.22);
     z-index: 40;
 }
 
-::deep nav.bottom-nav .nav-item {
+@media (min-width: 761px) {
+    nav.bottom-nav {
+        display: none;
+    }
+}
+
+nav.bottom-nav .nav-item {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 3.1rem;
-    padding: 0.45rem 0.4rem;
+    min-width: 2.75rem;
+    min-height: 2.95rem;
+    padding: 0.4rem;
     color: var(--text-soft);
     text-decoration: none;
     border-radius: 999px;
-    transition: 0.2s ease;
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
-::deep nav.bottom-nav .nav-item .label {
-    margin-top: 0.16rem;
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-
-::deep nav.bottom-nav .nav-icon {
-    font-size: 1rem;
+nav.bottom-nav .nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.24rem;
+    height: 1.24rem;
     line-height: 1;
 }
 
-::deep nav.bottom-nav .nav-item:hover {
+nav.bottom-nav .nav-item:hover {
     color: var(--text-strong);
+    transform: translateY(-1px);
 }
 
-::deep nav.bottom-nav .nav-item.active {
+nav.bottom-nav .nav-item:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+nav.bottom-nav .nav-item.active {
     color: #03263d;
-    border-color: rgba(255, 255, 255, 0.8);
     background: linear-gradient(155deg, rgba(194, 247, 255, 0.97), rgba(34, 211, 238, 0.92));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 6px 16px rgba(15, 118, 133, 0.3);
+}
+
+nav.bottom-nav .nav-item.nav-home {
+    min-height: 3.35rem;
+    transform: translateY(-0.32rem);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.3), rgba(186, 230, 253, 0.2));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 10px 24px rgba(2, 8, 20, 0.3);
+}
+
+nav.bottom-nav .nav-item.nav-home.active {
+    color: #04283f;
+    background: linear-gradient(150deg, rgba(224, 250, 255, 1), rgba(56, 189, 248, 0.95));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 12px 26px rgba(14, 116, 144, 0.42);
 }
 
 @media (max-width: 420px) {
-    ::deep nav.bottom-nav {
-        gap: 0.2rem;
-        bottom: 0.75rem;
+    nav.bottom-nav {
+        width: min(
+            24rem,
+            calc(
+                100vw - max(env(safe-area-inset-left, 0px), 0.8rem) -
+                max(env(safe-area-inset-right, 0px), 0.8rem)
+            )
+        );
+        gap: 0.25rem;
+        padding: 0.42rem;
     }
 
-    ::deep nav.bottom-nav .nav-item {
-        min-width: 0;
+    nav.bottom-nav .nav-item {
+        min-width: 2.6rem;
         min-height: 2.8rem;
-        padding: 0.35rem 0.32rem;
+        padding: 0.34rem;
     }
 
-    ::deep nav.bottom-nav .nav-item .label {
-        font-size: 0.56rem;
+    nav.bottom-nav .nav-item.nav-home {
+        min-height: 3.2rem;
+        transform: translateY(-0.24rem);
     }
 }

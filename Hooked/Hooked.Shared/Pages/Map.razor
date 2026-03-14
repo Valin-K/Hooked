@@ -3,14 +3,12 @@
 @using Microsoft.JSInterop
 @inject IMapService MapService
 @inject IJSRuntime JS
-@inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 
-<PageTitle>Explore Map · Hooked</PageTitle>
+<PageTitle>Explore Map Â· Hooked</PageTitle>
 
 <div class="mobile-shell map-shell">
     <TopNavBar Subtitle="Catch Hotspots" />
-
     @if (!string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) &&
          !MapService.MapboxAccessToken.StartsWith("YOUR_"))
     {
@@ -21,7 +19,7 @@
             {
                 <div class="map-overlay-state">
                     <div class="map-spinner"></div>
-                    <span>Loading catches…</span>
+                    <span>Loading catchesâ€¦</span>
                 </div>
             }
             else if (_loadError is not null)
@@ -55,13 +53,13 @@
                                 @GetDisplayName(pin.DisplayName, pin.Username)
                                 @if (pin.LengthMeters.HasValue)
                                 {
-                                    <span> · @($"{pin.LengthMeters.Value:F2} m")</span>
+                                    <span> â€¢ @($"{pin.LengthMeters.Value:F2} m")</span>
                                 }
-                                <span> · @pin.CaughtAt.ToLocalTime().ToString("MMM d")</span>
+                                <span> â€¢ @pin.CaughtAt.ToLocalTime().ToString("MMM d")</span>
                             </div>
                         </div>
                         <div class="map-catch-coord muted">
-                            @($"{pin.Lat:F2}°, {pin.Lng:F2}°")
+                            @($"{pin.Lat:F2}Â°, {pin.Lng:F2}Â°")
                         </div>
                     </button>
                 }
@@ -80,7 +78,7 @@
         </section>
     }
 
-    <bottom-nav />
+    <BottomNav />
 </div>
 
 @code {
@@ -131,7 +129,7 @@
         }
         catch
         {
-            // module already loaded or classic script — ignore
+            // module already loaded or classic script - ignore
         }
 
         await JS.InvokeVoidAsync(
