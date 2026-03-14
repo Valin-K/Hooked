@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject IFishDexService FishDexService
 @inject ISocialService SocialService
+@inject ISessionService SessionService
 @inject IGeminiFishSpeciesService GeminiService
 @inject ILocationService LocationService
 @inject IPhotoCaptureService PhotoCaptureService
@@ -180,6 +181,15 @@
     private bool _showPersonalBestPopup;
     private bool _showEnvironmentalPopup;
     private string? _environmentalImpactMessage;
+
+    private bool _hasActiveSession;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await SocialService.ResolveCurrentUserAsync();
+        var activeSession = await SessionService.GetActiveSessionAsync(currentUser.Id);
+        _hasActiveSession = activeSession != null;
+    }
 
     private async Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
@@ -371,6 +381,18 @@
                 // In case getting environmental impact fails, we shouldn't fail the whole catch process.
                 Console.WriteLine($"Error getting environmental impact: {ex.Message}");
             }
+
+            // After scanning, if there is an active session and NO popups are showing, navigate back immediately.
+            // If popups are showing, the navigation happens when the user dismisses the last popup.
+            if (_hasActiveSession)
+            {
+                if (!_showGlobalDiscoveryPopup && !_showUnlockPopup && !_showPersonalBestPopup && !_showEnvironmentalPopup)
+                {
+                    _statusMessage = "Catch logged to your active session. Returning...";
+                    await Task.Delay(1500); // Give them a moment to read the results
+                    NavigationManager.NavigateTo("/session/active");
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -425,20 +447,36 @@
     private void CloseGlobalDiscoveryPopup()
     {
         _showGlobalDiscoveryPopup = false;
+        CheckNavigateToSession();
     }
 
     private void CloseUnlockPopup()
     {
         _showUnlockPopup = false;
+        CheckNavigateToSession();
     }
 
     private void ClosePersonalBestPopup()
     {
         _showPersonalBestPopup = false;
+        CheckNavigateToSession();
     }
 
     private void CloseEnvironmentalPopup()
     {
         _showEnvironmentalPopup = false;
+        CheckNavigateToSession();
+    }
+
+    private void CheckNavigateToSession()
+    {
+        if (_hasActiveSession && 
+            !_showGlobalDiscoveryPopup && 
+            !_showUnlockPopup && 
+            !_showPersonalBestPopup && 
+            !_showEnvironmentalPopup)
+        {
+            NavigationManager.NavigateTo("/session/active");
+        }
     }
 }

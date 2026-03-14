@@ -1,6 +1,7 @@
 @page "/feed"
 @using Hooked.Shared.Services
 @inject ISocialService SocialService
+@inject ISessionService SessionService
 
 <PageTitle>Community Feed</PageTitle>
 
@@ -33,6 +34,65 @@
         }
 
         <section class="feed-list">
+
+            @if (_postItems != null && _postItems.Any())
+            {
+                <div class="posts-section-divider">
+                    <h3>Recent Fishing Sessions</h3>
+                </div>
+                @foreach (var post in _postItems)
+                {
+                    <article class="feed-card post-card ocean-glass">
+                        <header class="card-header">
+                            <a class="author-link" href="@BuildProfileLink(post.User?.Username ?? "unknown")">
+                                <div class="author-avatar">@GetAvatarToken(post.User?.DisplayName, post.User?.Username ?? "unknown")</div>
+                                <div>
+                                    <div class="author-name">@GetDisplayName(post.User?.DisplayName, post.User?.Username ?? "unknown")</div>
+                                    <div class="author-handle">@($"@{post.User?.Username}")</div>
+                                </div>
+                            </a>
+                        </header>
+
+                        <div class="post-content">
+                            @if (!string.IsNullOrEmpty(post.LocationName))
+                            {
+                                <div class="post-location">
+                                    <AppIcon Name="map-pin" Size="14" /> @post.LocationName
+                                </div>
+                            }
+                            <h2 class="post-title" style="margin: 0.5rem 0; color: #fff;">@post.Title</h2>
+                            <p class="post-body" style="font-size: 0.95rem; color: #e0e0e0; line-height: 1.4;">@post.Body</p>
+
+                            @if (post.FishingSession?.Catches != null && post.FishingSession.Catches.Any())
+                            {
+                                <div class="post-species">
+                                    @foreach (var group in post.FishingSession.Catches.Where(c => c.Species != null).GroupBy(c => c.Species!.CommonName))
+                                    {
+                                        <span class="inline-species-badge">
+                                            <AppIcon Name="fish" Size="12" /> @group.Count()x @group.Key
+                                        </span>
+                                    }
+                                </div>
+                            }
+
+                            @if (post.Photos != null && post.Photos.Any())
+                            {
+                                <div class="post-photos">
+                                    @foreach (var photo in post.Photos)
+                                    {
+                                        <img src="@photo.PhotoPath" alt="Session post photo" class="post-photo-img" />
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </article>
+                }
+
+                <div class="posts-section-divider" style="margin-top: 2rem;">
+                    <h3>Single Catches</h3>
+                </div>
+            }
+
             @foreach (var item in _feedItems)
             {
                 var isSelf = item.UserId == _currentUserId;
@@ -126,8 +186,28 @@
     <BottomNav />
 </div>
 
+<style>
+    .posts-section-divider {
+        padding: 0 1rem;
+        margin-bottom: 1rem;
+    }
+    .posts-section-divider h3 {
+        font-size: 1.1rem;
+        color: #fff;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 0.5rem;
+    }
+    .post-content { padding: 0.5rem 1rem 1rem 1rem; }
+    .post-location { color: #888; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem; font-weight: 600; text-transform: uppercase; }
+    .post-species { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .inline-species-badge { background: rgba(0, 200, 83, 0.2); color: #00e676; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem; }
+    .post-photos { display: flex; overflow-x: auto; gap: 0.5rem; margin-top: 1rem; padding-bottom: 0.5rem; }
+    .post-photo-img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+</style>
+
 @code {
     private readonly List<FeedCardModel> _feedItems = [];
+    private IReadOnlyList<Hooked.Shared.Data.Post> _postItems = [];
     private readonly Dictionary<Guid, bool> _followStateByUserId = [];
     private readonly Dictionary<Guid, string> _commentDraftsByCatchId = [];
     private readonly HashSet<Guid> _reactionBusyCatchIds = [];
@@ -147,6 +227,8 @@
             var currentUser = await SocialService.ResolveCurrentUserAsync();
             _currentUserId = currentUser.Id;
             _currentUsername = currentUser.Username;
+
+            _postItems = await SessionService.GetPostsAsync(10);
 
             var feedItems = await SocialService.GetCommunityFeedAsync(_currentUserId);
             _feedItems.Clear();

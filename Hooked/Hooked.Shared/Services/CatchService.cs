@@ -19,6 +19,9 @@ namespace Hooked.Shared.Services
 
         public async Task<Guid> AddCatchAsync(Guid userId, int speciesId, double? lengthMeters = null, double? weightKg = null, string? photoPath = null, string? locationJson = null, CancellationToken cancellationToken = default)
         {
+            var activeSession = await _db.FishingSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive, cancellationToken);
+
             var catchRec = new CatchRecord
             {
                 UserId = userId,
@@ -27,7 +30,8 @@ namespace Hooked.Shared.Services
                 WeightKg = weightKg,
                 PhotoPath = photoPath,
                 LocationJson = locationJson,
-                CaughtAt = DateTime.UtcNow
+                CaughtAt = DateTime.UtcNow,
+                FishingSessionId = activeSession?.Id
             };
 
             _db.CatchRecords.Add(catchRec);
