@@ -13,8 +13,18 @@
         <h1 class="welcome">Dive into your next trophy catch.</h1>
         <div class="subtitle">Track catches, map hotspots, and identify species in a single fluid workspace.</div>
         <div class="hero-actions">
-            <button class="action primary" @onclick="ScanFish">Open AI Scanner</button>
-            <button class="action secondary" @onclick="GoToFishDex">Browse FishDex</button>
+            <button class="action primary" @onclick="ScanFish">
+                <AppIcon Name="scan" Size="18" /> <span style="margin-left:8px;">AI Scanner</span>
+            </button>
+            <button class="action secondary" @onclick="GoToFishDex">
+                <AppIcon Name="fish" Size="18" /> <span style="margin-left:8px;">FishDex</span>
+            </button>
+            <button class="action secondary" @onclick="GoToInsights">
+                <AppIcon Name="chart-line" Size="18" /> <span style="margin-left:8px;">Insights</span>
+            </button>
+            <button class="action secondary" @onclick="GoToLeaderboard">
+                <AppIcon Name="trophy" Size="18" /> <span style="margin-left:8px;">Leaderboard</span>
+            </button>
         </div>
     </section>
 
@@ -223,6 +233,8 @@
 
     private void ScanFish() => NavigationManager.NavigateTo("/arscanner");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
+    private void GoToInsights() => NavigationManager.NavigateTo("/insights");
+    private void GoToLeaderboard() => NavigationManager.NavigateTo("/leaderboard");
     private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 
     // ── Static conservation news ────────────────────────────────────
