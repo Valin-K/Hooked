@@ -1,9 +1,12 @@
 @page "/arscanner"
 @using Hooked.Shared.Services
+@using Hooked.Shared.Services.AI
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
 @inject IFishDexService FishDexService
 @inject ISocialService SocialService
+@inject IGeminiFishSpeciesService GeminiService
+@inject ILocationService LocationService
 @inject NavigationManager NavigationManager
 
 <PageTitle>AI Scanner</PageTitle>
@@ -99,6 +102,17 @@
     </div>
 }
 
+@if (_showEnvironmentalPopup)
+{
+    <div class="scanner-popup-overlay" @onclick="CloseEnvironmentalPopup">
+        <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
+            <h2>Environmental Impact</h2>
+            <p>@_environmentalImpactMessage</p>
+            <button class="action primary" type="button" @onclick="CloseEnvironmentalPopup">Got it</button>
+        </div>
+    </div>
+}
+
 @code {
     private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
 
@@ -113,6 +127,8 @@
     private bool _showGlobalDiscoveryPopup;
     private bool _showUnlockPopup;
     private bool _showPersonalBestPopup;
+    private bool _showEnvironmentalPopup;
+    private string? _environmentalImpactMessage;
 
     private Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
@@ -144,6 +160,7 @@
         _showGlobalDiscoveryPopup = false;
         _showUnlockPopup = false;
         _showPersonalBestPopup = false;
+        _showEnvironmentalPopup = false;
         _statusMessage = "Scanning fish species...";
         _errorMessage = null;
 
@@ -164,6 +181,11 @@
                 return;
             }
 
+            var location = await LocationService.GetCurrentLocationAsync();
+            var locationJson = location != null 
+                ? System.Text.Json.JsonSerializer.Serialize(new { lat = location.Latitude, lon = location.Longitude, desc = location.Description })
+                : null;
+
             var currentUser = await SocialService.ResolveCurrentUserAsync();
             var scanRequest = new FishScanLogRequestDto(
                 memoryStream.ToArray(),
@@ -171,7 +193,7 @@
                 ParseLengthMeters(),
                 null,
                 null,
-                null);
+                locationJson);
 
             var scanResult = await FishDexService.ScanAndLogCatchAsync(currentUser.Id, scanRequest);
             _speciesName = scanResult.SpeciesName;
@@ -185,6 +207,20 @@
             if (scanResult.WasImageGenerated)
             {
                 _statusMessage = "Catch logged, FishDex updated, and a new species image was generated.";
+            }
+
+            try 
+            {
+                _environmentalImpactMessage = await GeminiService.GetEnvironmentalImpactAsync(_speciesName, scanRequest.LengthMeters, locationJson);
+                if (!string.IsNullOrWhiteSpace(_environmentalImpactMessage))
+                {
+                    _showEnvironmentalPopup = true;
+                }
+            } 
+            catch (Exception ex) 
+            {
+                // In case getting environmental impact fails, we shouldn't fail the whole catch process.
+                Console.WriteLine($"Error getting environmental impact: {ex.Message}");
             }
         }
         catch (OperationCanceledException)
@@ -255,5 +291,10 @@
     private void ClosePersonalBestPopup()
     {
         _showPersonalBestPopup = false;
+    }
+
+    private void CloseEnvironmentalPopup()
+    {
+        _showEnvironmentalPopup = false;
     }
 }
