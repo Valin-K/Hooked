@@ -3,6 +3,7 @@ using System;
 using Hooked.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hooked.Shared.Migrations
 {
     [DbContext(typeof(HookedDbContext))]
-    partial class HookedDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260314132026_AddNotifications")]
+    partial class AddNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -118,11 +121,6 @@ namespace Hooked.Shared.Migrations
                     b.Property<Guid?>("FishingSessionId")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("IsFavorite")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
                     b.Property<double?>("LengthMeters")
                         .HasColumnType("double precision");
 
@@ -151,8 +149,6 @@ namespace Hooked.Shared.Migrations
                     b.HasIndex("SpeciesId");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("UserId", "IsFavorite");
 
                     b.ToTable("CatchRecords");
                 });
@@ -237,56 +233,6 @@ namespace Hooked.Shared.Migrations
                     b.HasIndex("DiscoveredByUserId");
 
                     b.ToTable("FishSpecies");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.FishingQuest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Cadence")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<int>("RewardXp")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SkillId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TargetCount")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.HasIndex("SkillId");
-
-                    b.HasIndex("Cadence", "IsActive");
-
-                    b.ToTable("fishing_quests", (string)null);
                 });
 
             modelBuilder.Entity("Hooked.Shared.Data.FishingSession", b =>
@@ -513,42 +459,6 @@ namespace Hooked.Shared.Migrations
                     b.ToTable("Sightings");
                 });
 
-            modelBuilder.Entity("Hooked.Shared.Data.Skill", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("skills", (string)null);
-                });
-
             modelBuilder.Entity("Hooked.Shared.Data.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -598,160 +508,6 @@ namespace Hooked.Shared.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserAchievements");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.UserFishingQuestProgress", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("LastUpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("PeriodEndUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("PeriodStartUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ProgressCount")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("QuestId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("RewardClaimedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("RewardXpEventId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuestId");
-
-                    b.HasIndex("RewardXpEventId");
-
-                    b.HasIndex("UserId", "IsCompleted", "RewardClaimedAtUtc");
-
-                    b.HasIndex("UserId", "PeriodStartUtc", "PeriodEndUtc");
-
-                    b.HasIndex("UserId", "QuestId", "PeriodStartUtc")
-                        .IsUnique();
-
-                    b.ToTable("user_fishing_quest_progress", (string)null);
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.UserSkill", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("CurrentLevel")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("CurrentXp")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("FirstAchievedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("LastUpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("SkillId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TotalXpEarned")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LastUpdatedAt");
-
-                    b.HasIndex("SkillId");
-
-                    b.HasIndex("UserId", "SkillId")
-                        .IsUnique();
-
-                    b.ToTable("user_skills", (string)null);
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.XpEvent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("CatchRecordId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EventKey")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("LevelsGained")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Metadata")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<int>("NewLevel")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NewXp")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PreviousLevel")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PreviousXp")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.Property<int>("SkillId")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("XpDelta")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CatchRecordId");
-
-                    b.HasIndex("EventKey")
-                        .IsUnique();
-
-                    b.HasIndex("SkillId");
-
-                    b.HasIndex("UserId", "SkillId", "CreatedAt");
-
-                    b.ToTable("xp_events", (string)null);
                 });
 
             modelBuilder.Entity("Hooked.Shared.Data.CatchComment", b =>
@@ -852,17 +608,6 @@ namespace Hooked.Shared.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("DiscoveredByUser");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.FishingQuest", b =>
-                {
-                    b.HasOne("Hooked.Shared.Data.Skill", "Skill")
-                        .WithMany()
-                        .HasForeignKey("SkillId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Skill");
                 });
 
             modelBuilder.Entity("Hooked.Shared.Data.FishingSession", b =>
@@ -1006,77 +751,6 @@ namespace Hooked.Shared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Hooked.Shared.Data.UserFishingQuestProgress", b =>
-                {
-                    b.HasOne("Hooked.Shared.Data.FishingQuest", "Quest")
-                        .WithMany("UserProgress")
-                        .HasForeignKey("QuestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hooked.Shared.Data.XpEvent", "RewardXpEvent")
-                        .WithMany()
-                        .HasForeignKey("RewardXpEventId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Hooked.Shared.Data.User", "User")
-                        .WithMany("FishingQuestProgress")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Quest");
-
-                    b.Navigation("RewardXpEvent");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.UserSkill", b =>
-                {
-                    b.HasOne("Hooked.Shared.Data.Skill", "Skill")
-                        .WithMany("UserSkills")
-                        .HasForeignKey("SkillId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hooked.Shared.Data.User", "User")
-                        .WithMany("UserSkills")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Skill");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.XpEvent", b =>
-                {
-                    b.HasOne("Hooked.Shared.Data.CatchRecord", "CatchRecord")
-                        .WithMany()
-                        .HasForeignKey("CatchRecordId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Hooked.Shared.Data.Skill", "Skill")
-                        .WithMany("XpEvents")
-                        .HasForeignKey("SkillId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hooked.Shared.Data.User", "User")
-                        .WithMany("XpEvents")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CatchRecord");
-
-                    b.Navigation("Skill");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Hooked.Shared.Data.Achievement", b =>
                 {
                     b.Navigation("UserAchievements");
@@ -1098,11 +772,6 @@ namespace Hooked.Shared.Migrations
                     b.Navigation("Sightings");
                 });
 
-            modelBuilder.Entity("Hooked.Shared.Data.FishingQuest", b =>
-                {
-                    b.Navigation("UserProgress");
-                });
-
             modelBuilder.Entity("Hooked.Shared.Data.FishingSession", b =>
                 {
                     b.Navigation("Catches");
@@ -1111,13 +780,6 @@ namespace Hooked.Shared.Migrations
             modelBuilder.Entity("Hooked.Shared.Data.Post", b =>
                 {
                     b.Navigation("Photos");
-                });
-
-            modelBuilder.Entity("Hooked.Shared.Data.Skill", b =>
-                {
-                    b.Navigation("UserSkills");
-
-                    b.Navigation("XpEvents");
                 });
 
             modelBuilder.Entity("Hooked.Shared.Data.User", b =>
@@ -1130,8 +792,6 @@ namespace Hooked.Shared.Migrations
 
                     b.Navigation("FishDexEntries");
 
-                    b.Navigation("FishingQuestProgress");
-
                     b.Navigation("FishingSessions");
 
                     b.Navigation("Friends");
@@ -1141,10 +801,6 @@ namespace Hooked.Shared.Migrations
                     b.Navigation("Sightings");
 
                     b.Navigation("UserAchievements");
-
-                    b.Navigation("UserSkills");
-
-                    b.Navigation("XpEvents");
                 });
 #pragma warning restore 612, 618
         }

@@ -12,26 +12,26 @@ namespace Hooked.Shared.Services
 {
     public sealed class FishDexService : IFishDexService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
         private readonly IGeminiFishSpeciesService _geminiFishSpeciesService;
         private readonly ILeonardoFishImageService _leonardoFishImageService;
         private readonly IAchievementService _achievementService;
         private readonly ICatchService _catchService;
 
         public FishDexService(
-            HookedDbContext db,
+            IDbContextFactory<HookedDbContext> dbFactory,
             IGeminiFishSpeciesService geminiFishSpeciesService,
             ILeonardoFishImageService leonardoFishImageService,
             IAchievementService achievementService,
             ICatchService catchService)
         {
-            ArgumentNullException.ThrowIfNull(db);
+            ArgumentNullException.ThrowIfNull(dbFactory);
             ArgumentNullException.ThrowIfNull(geminiFishSpeciesService);
             ArgumentNullException.ThrowIfNull(leonardoFishImageService);
             ArgumentNullException.ThrowIfNull(achievementService);
             ArgumentNullException.ThrowIfNull(catchService);
 
-            _db = db;
+            _dbFactory = dbFactory;
             _geminiFishSpeciesService = geminiFishSpeciesService;
             _leonardoFishImageService = leonardoFishImageService;
             _achievementService = achievementService;
@@ -57,7 +57,8 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("MIME type is required.", nameof(request));
             }
 
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
+            await using var db = _dbFactory.CreateDbContext();
+            await EnsureUserExistsAsync(userId, db, cancellationToken).ConfigureAwait(false);
 
             var speciesName = await _geminiFishSpeciesService
                 .IdentifyFishSpeciesAsync(request.PhotoBytes, request.MimeType, cancellationToken)
@@ -69,7 +70,7 @@ namespace Hooked.Shared.Services
                 throw new InvalidOperationException("Scanner could not identify a species from this photo.");
             }
 
-            var fishSpecies = await ResolveSpeciesAsync(normalizedSpeciesName, cancellationToken).ConfigureAwait(false);
+            var fishSpecies = await ResolveSpeciesAsync(normalizedSpeciesName, db, cancellationToken).ConfigureAwait(false);
             var isNewGlobalSpecies = fishSpecies is null;
 
             if (fishSpecies is null)
@@ -81,8 +82,8 @@ namespace Hooked.Shared.Services
                     DiscoveredByUserId = userId
                 };
 
-                _db.FishSpecies.Add(fishSpecies);
-                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                db.FishSpecies.Add(fishSpecies);
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
 
             var wasImageGenerated = false;
@@ -118,7 +119,7 @@ namespace Hooked.Shared.Services
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            var fishDexEntry = await _db.FishDexEntries
+            var fishDexEntry = await db.FishDexEntries
                 .FirstOrDefaultAsync(fd => fd.UserId == userId && fd.SpeciesId == fishSpecies.Id, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -138,7 +139,7 @@ namespace Hooked.Shared.Services
                     IsRare = fishSpecies.IsEndangered
                 };
 
-                _db.FishDexEntries.Add(fishDexEntry);
+                db.FishDexEntries.Add(fishDexEntry);
                 isNewPersonalBest = request.LengthMeters.HasValue;
             }
             else
@@ -156,7 +157,7 @@ namespace Hooked.Shared.Services
                 }
             }
 
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             var newAchievements = await _achievementService
                 .CheckAndAwardAsync(userId, cancellationToken)
@@ -181,10 +182,11 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("User ID is required.", nameof(userId));
             }
 
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
-            await NormalizeExistingIllustrationsAsync(cancellationToken).ConfigureAwait(false);
+            await using var db = _dbFactory.CreateDbContext();
+            await EnsureUserExistsAsync(userId, db, cancellationToken).ConfigureAwait(false);
+            await NormalizeExistingIllustrationsAsync(db, cancellationToken).ConfigureAwait(false);
 
-            var discoveredSpecies = await _db.FishSpecies.AsNoTracking()
+            var discoveredSpecies = await db.FishSpecies.AsNoTracking()
                 .Where(species => species.Catches.Any())
                 .OrderBy(species => species.CommonName)
                 .Select(species => new
@@ -197,7 +199,7 @@ namespace Hooked.Shared.Services
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            var userFishDexEntries = await _db.FishDexEntries.AsNoTracking()
+            var userFishDexEntries = await db.FishDexEntries.AsNoTracking()
                 .Where(entry => entry.UserId == userId)
                 .Select(entry => new
                 {
@@ -210,7 +212,7 @@ namespace Hooked.Shared.Services
                 .ConfigureAwait(false);
 
             var speciesIds = discoveredSpecies.Select(species => species.Id).ToArray();
-            var userCatches = await _db.CatchRecords.AsNoTracking()
+            var userCatches = await db.CatchRecords.AsNoTracking()
                 .Where(catchRecord => catchRecord.UserId == userId && speciesIds.Contains(catchRecord.SpeciesId))
                 .OrderByDescending(catchRecord => catchRecord.CaughtAt)
                 .Select(catchRecord => new
@@ -262,9 +264,9 @@ namespace Hooked.Shared.Services
             return new FishDexOverviewDto(userId, fishDexSpecies);
         }
 
-        private async Task EnsureUserExistsAsync(Guid userId, CancellationToken cancellationToken)
+        private async Task EnsureUserExistsAsync(Guid userId, HookedDbContext db, CancellationToken cancellationToken)
         {
-            var userExists = await _db.Users.AsNoTracking()
+            var userExists = await db.Users.AsNoTracking()
                 .AnyAsync(user => user.Id == userId, cancellationToken)
                 .ConfigureAwait(false);
             if (!userExists)
@@ -273,9 +275,9 @@ namespace Hooked.Shared.Services
             }
         }
 
-        private async Task<FishSpecies?> ResolveSpeciesAsync(string speciesName, CancellationToken cancellationToken)
+        private async Task<FishSpecies?> ResolveSpeciesAsync(string speciesName, HookedDbContext db, CancellationToken cancellationToken)
         {
-            var exactMatch = await _db.FishSpecies
+            var exactMatch = await db.FishSpecies
                 .FirstOrDefaultAsync(species => species.CommonName == speciesName, cancellationToken)
                 .ConfigureAwait(false);
             if (exactMatch is not null)
@@ -283,7 +285,7 @@ namespace Hooked.Shared.Services
                 return exactMatch;
             }
 
-            return await _db.FishSpecies
+            return await db.FishSpecies
                 .FirstOrDefaultAsync(species => species.CommonName.ToLower() == speciesName.ToLower(), cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -300,9 +302,9 @@ namespace Hooked.Shared.Services
             return textInfo.ToTitleCase(normalized.ToLowerInvariant());
         }
 
-        private async Task NormalizeExistingIllustrationsAsync(CancellationToken cancellationToken)
+        private async Task NormalizeExistingIllustrationsAsync(HookedDbContext db, CancellationToken cancellationToken)
         {
-            var speciesWithIllustrations = await _db.FishSpecies
+            var speciesWithIllustrations = await db.FishSpecies
                 .Where(species => species.Catches.Any()
                     && !string.IsNullOrWhiteSpace(species.IllustrationImageUrl))
                 .ToListAsync(cancellationToken)
@@ -332,7 +334,7 @@ namespace Hooked.Shared.Services
 
             if (hasChanges)
             {
-                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 

@@ -1,39 +1,48 @@
+using Hooked.Shared.Data;
+using Hooked.Shared.Services.Search;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Hooked.Shared.Data;
-using Hooked.Shared.Services.Search;
-using Microsoft.Extensions.Logging;
+
 namespace Hooked.Shared.Services
 {
     public sealed class CatchService : ICatchService
     {
         private const int CatchLogXpAmount = 50;
         private const int SpeciesDiscoveryXpAmount = 100;
-        private readonly HookedDbContext _db;
+
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
         private readonly IElasticSearchService? _elastic;
         private readonly ILogger<CatchService> _logger;
         private readonly IProgressionService _progressionService;
         private readonly IFishingQuestService _fishingQuestService;
 
         public CatchService(
-            HookedDbContext db,
+            IDbContextFactory<HookedDbContext> dbFactory,
             ILogger<CatchService> logger,
             IProgressionService progressionService,
             IFishingQuestService fishingQuestService,
             IElasticSearchService? elastic = null)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _progressionService = progressionService ?? throw new ArgumentNullException(nameof(progressionService));
             _fishingQuestService = fishingQuestService ?? throw new ArgumentNullException(nameof(fishingQuestService));
             _elastic = elastic;
         }
 
-        public async Task<Guid> AddCatchAsync(Guid userId, int speciesId, double? lengthMeters = null, double? weightKg = null, string? photoPath = null, string? locationJson = null, CancellationToken cancellationToken = default)
+        public async Task<Guid> AddCatchAsync(
+            Guid userId,
+            int speciesId,
+            double? lengthMeters = null,
+            double? weightKg = null,
+            string? photoPath = null,
+            string? locationJson = null,
+            CancellationToken cancellationToken = default)
         {
             if (userId == Guid.Empty)
             {
@@ -45,7 +54,9 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Species ID must be greater than zero.", nameof(speciesId));
             }
 
-            var userExists = await _db.Users
+            await using var db = _dbFactory.CreateDbContext();
+
+            var userExists = await db.Users
                 .AsNoTracking()
                 .AnyAsync(user => user.Id == userId, cancellationToken)
                 .ConfigureAwait(false);
@@ -54,7 +65,7 @@ namespace Hooked.Shared.Services
                 throw new KeyNotFoundException($"User '{userId}' was not found.");
             }
 
-            var speciesExists = await _db.FishSpecies
+            var speciesExists = await db.FishSpecies
                 .AsNoTracking()
                 .AnyAsync(species => species.Id == speciesId, cancellationToken)
                 .ConfigureAwait(false);
@@ -63,13 +74,14 @@ namespace Hooked.Shared.Services
                 throw new KeyNotFoundException($"Species '{speciesId}' was not found.");
             }
 
-            var hasPreviousCatchForSpecies = await _db.CatchRecords
+            var hasPreviousCatchForSpecies = await db.CatchRecords
                 .AsNoTracking()
                 .AnyAsync(catchRecord => catchRecord.UserId == userId && catchRecord.SpeciesId == speciesId, cancellationToken)
                 .ConfigureAwait(false);
 
-            var activeSession = await _db.FishingSessions
-                .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive, cancellationToken);
+            var activeSession = await db.FishingSessions
+                .FirstOrDefaultAsync(session => session.UserId == userId && session.IsActive, cancellationToken)
+                .ConfigureAwait(false);
 
             var catchRec = new CatchRecord
             {
@@ -83,28 +95,31 @@ namespace Hooked.Shared.Services
                 FishingSessionId = activeSession?.Id
             };
 
-            _db.CatchRecords.Add(catchRec);
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            db.CatchRecords.Add(catchRec);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             if (_elastic is not null)
             {
                 try
                 {
-                    var species = await _db.FishSpecies.FindAsync([speciesId], cancellationToken).ConfigureAwait(false);
-                    var user = await _db.Users.FindAsync([userId], cancellationToken).ConfigureAwait(false);
+                    var species = await db.FishSpecies.FindAsync([speciesId], cancellationToken).ConfigureAwait(false);
+                    var user = await db.Users.FindAsync([userId], cancellationToken).ConfigureAwait(false);
                     if (species is not null && user is not null)
+                    {
                         await _elastic.IndexCatchAsync(catchRec, species, user, cancellationToken).ConfigureAwait(false);
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Elasticsearch indexing failed for catch {CatchId} — continuing without search index", catchRec.Id);
                 }
             }
-            var activeSkillIds = await _db.Skills.AsNoTracking()
+
+            var activeSkillIds = await db.Skills.AsNoTracking()
                 .Where(skill =>
                     skill.IsActive &&
                     (skill.Key == ProgressionSkillCatalog.CatchMasteryKey
-                    || skill.Key == ProgressionSkillCatalog.SpeciesMasteryKey))
+                     || skill.Key == ProgressionSkillCatalog.SpeciesMasteryKey))
                 .Select(skill => new { skill.Key, skill.Id })
                 .ToDictionaryAsync(skill => skill.Key, skill => skill.Id, cancellationToken)
                 .ConfigureAwait(false);
@@ -140,31 +155,34 @@ namespace Hooked.Shared.Services
             await _fishingQuestService
                 .RecordCatchProgressAsync(userId, catchRec.Id, catchRec.CaughtAt, cancellationToken)
                 .ConfigureAwait(false);
+
             return catchRec.Id;
         }
 
         public async Task<IEnumerable<CatchRecord>> GetRecentCatchesAsync(int limit = 50, CancellationToken cancellationToken = default)
         {
             var normalizedLimit = Math.Clamp(limit, 1, 500);
-
-            return await _db.CatchRecords.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.CatchRecords.AsNoTracking()
                 .OrderByDescending(c => c.CaughtAt)
                 .Take(normalizedLimit)
                 .Include(c => c.Species)
                 .Include(c => c.User)
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<CatchRecord>> GetUserCatchesAsync(Guid userId, int limit = 100, CancellationToken cancellationToken = default)
         {
             var normalizedLimit = Math.Clamp(limit, 1, 500);
-
-            return await _db.CatchRecords.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.CatchRecords.AsNoTracking()
                 .Where(c => c.UserId == userId)
                 .OrderByDescending(c => c.CaughtAt)
                 .Take(normalizedLimit)
                 .Include(c => c.Species)
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public async Task<CatchDetailDto?> GetCatchDetailAsync(Guid catchId, Guid viewerUserId, CancellationToken cancellationToken = default)
@@ -174,7 +192,8 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
-            var catchRecord = await _db.CatchRecords.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            var catchRecord = await db.CatchRecords.AsNoTracking()
                 .Where(c => c.Id == catchId)
                 .Select(c => new
                 {
@@ -205,7 +224,7 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
-            var comments = await _db.CatchComments.AsNoTracking()
+            var comments = await db.CatchComments.AsNoTracking()
                 .Where(c => c.CatchId == catchId)
                 .OrderBy(c => c.CommentedAt)
                 .Take(100)
@@ -255,7 +274,8 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("User ID is required.", nameof(userId));
             }
 
-            var catchRecord = await _db.CatchRecords
+            await using var db = _dbFactory.CreateDbContext();
+            var catchRecord = await db.CatchRecords
                 .FirstOrDefaultAsync(c => c.Id == catchId, cancellationToken)
                 .ConfigureAwait(false);
             if (catchRecord is null)
@@ -274,7 +294,7 @@ namespace Hooked.Shared.Services
             }
 
             catchRecord.IsFavorite = isFavorite;
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
     }

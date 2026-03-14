@@ -1,5 +1,8 @@
 @using Microsoft.AspNetCore.Components
 @inject NavigationManager NavigationManager
+@inject ISocialService SocialService
+@inject INotificationService NotificationService
+@using Hooked.Shared.Services
 
 <nav class="bottom-nav">
     <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed" aria-label="Feed">
@@ -22,6 +25,15 @@
             <AppIcon Name='@GetNavIcon("/fishdex", "fish", "book-open")' Size="20" />
         </span>
     </a>
+    <a href="/notifications" class="@GetNavItemClass("/notifications") nav-notif-item" title="Notifications" aria-label="Notifications">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name="bell" Size="20" />
+        </span>
+        @if (_unreadCount > 0)
+        {
+            <span class="nav-notif-badge">@(_unreadCount > 9 ? "9+" : _unreadCount.ToString())</span>
+        }
+    </a>
     <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile" aria-label="Profile">
         <span class="nav-icon" aria-hidden="true">
             <AppIcon Name='@GetNavIcon("/profile", "user", "user-circle")' Size="20" />
@@ -30,6 +42,31 @@
 </nav>
 
 @code {
+    private int _unreadCount;
+    private Guid _currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUnreadCountAsync().ConfigureAwait(false);
+    }
+
+    private async Task LoadUnreadCountAsync()
+    {
+        try
+        {
+            if (_currentUserId == Guid.Empty)
+            {
+                var user = await SocialService.ResolveCurrentUserAsync().ConfigureAwait(false);
+                _currentUserId = user.Id;
+            }
+            _unreadCount = await NotificationService.GetUnreadCountAsync(_currentUserId).ConfigureAwait(false);
+        }
+        catch
+        {
+            _unreadCount = 0;
+        }
+    }
+
     private string GetNavItemClass(string href)
     {
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
