@@ -89,8 +89,9 @@ namespace Hooked.Shared.Services.AI
                 {
                     await LogAsync(onLog, "Leonardo image ready.").ConfigureAwait(false);
 
+                    using var downloadClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
                     var transparentPngDataUrl = await TryConvertToTransparentPngDataUrlAsync(
-                        httpClient,
+                        downloadClient,
                         url,
                         onLog,
                         cancellationToken).ConfigureAwait(false);
@@ -521,7 +522,8 @@ namespace Hooked.Shared.Services.AI
                         continue;
                     }
 
-                    var softThreshold = backgroundModel.Threshold + 24d;
+                    // A slightly wider soft threshold for edge anti-aliasing against the green screen
+                    var softThreshold = backgroundModel.Threshold + 20d;
                     if (closestDistance <= softThreshold)
                     {
                         var ratio = (closestDistance - backgroundModel.Threshold) / (softThreshold - backgroundModel.Threshold);
@@ -587,6 +589,12 @@ namespace Hooked.Shared.Services.AI
                         TryVisit(cx + 1, cy);
                         TryVisit(cx, cy - 1);
                         TryVisit(cx, cy + 1);
+                        
+                        // 8-way connectivity to prevent severed fins/tails
+                        TryVisit(cx - 1, cy - 1);
+                        TryVisit(cx + 1, cy - 1);
+                        TryVisit(cx - 1, cy + 1);
+                        TryVisit(cx + 1, cy + 1);
                     }
 
                     if (component.Count > bestComponent.Length)
@@ -737,7 +745,10 @@ namespace Hooked.Shared.Services.AI
             }
 
             var averageEdgeDistance = edgeCount == 0 ? 0d : totalDistance / edgeCount;
-            var threshold = Math.Clamp(averageEdgeDistance + 42d, 58d, 130d);
+            // The AI often generates slightly noisy or compressed backgrounds, so a very tight threshold stops the floodfill early.
+            // Since the background is now a highly contrasting chroma-key green, we can afford a very wide threshold
+            // to swallow all the green AI noise without worrying about eating the fish (since fish aren't neon green).
+            var threshold = Math.Clamp(averageEdgeDistance + 45d, 55d, 120d);
 
             cornerSamples.Add(averageBackground);
             return new BackgroundModel(cornerSamples.ToArray(), threshold);
@@ -806,7 +817,7 @@ namespace Hooked.Shared.Services.AI
                    $"Strict full-body side profile view with the head facing left. " +
                    $"Anatomical and color traits MUST follow this description exactly: ({fishDescription}:1.3). " +
                    $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, clean outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
-                   $"The fish must be isolated as a clean cutout on a fully transparent background (alpha channel), PNG-style sticker asset, with no backdrop.";
+                   $"The fish must be isolated as a clean cutout on a bright, uniform chroma-key green background (#00FF00), with absolutely no shadows, no gradients, and no backdrop elements.";
         }
 
         private static string BuildNegativePrompt()
@@ -814,7 +825,7 @@ namespace Hooked.Shared.Services.AI
             return "duplicate, clone, twin, reflection, mirrored, stacked, multiple fish, two fish, pair, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
                    "facing right, angled, diagonal, tilted, swimming up, swimming down, perspective, foreshortening, " +
                    "realistic, 3d, photograph, text, watermark, logo, deformed fish anatomy, " +
-                   "complicated shading, gradients, shadow, background environment, white background, gray background, blue background, underwater scene, seafloor, plants, bubbles";
+                   "complicated shading, gradients, drop shadow, white background, gray background, blue background, magenta background, transparent background, checkerboard, underwater scene, seafloor, plants, bubbles";
         }
     }
 }
