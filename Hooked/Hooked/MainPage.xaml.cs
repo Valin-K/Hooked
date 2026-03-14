@@ -1,5 +1,6 @@
 ﻿using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Storage;
+using System.Diagnostics;
 
 namespace Hooked
 {
@@ -16,7 +17,14 @@ namespace Hooked
         private async void OnLoaded(object? sender, EventArgs e)
         {
             Loaded -= OnLoaded;
-            await RequestLocationPermissionOnFirstOpenAsync();
+            try
+            {
+                await RequestLocationPermissionOnFirstOpenAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Location permission startup check failed: {ex}");
+            }
         }
 
         private static async Task RequestLocationPermissionOnFirstOpenAsync()
@@ -26,13 +34,20 @@ namespace Hooked
                 return;
             }
 
-            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-            if (status != PermissionStatus.Granted)
+            try
             {
-                await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            }
+                var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+                if (status != PermissionStatus.Granted)
+                {
+                    await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+                }
 
-            Preferences.Default.Set(LocationPermissionPromptedKey, true);
+                Preferences.Default.Set(LocationPermissionPromptedKey, true);
+            }
+            catch (PermissionException ex)
+            {
+                Debug.WriteLine($"Location permission metadata is missing or invalid: {ex.Message}");
+            }
         }
     }
 }
