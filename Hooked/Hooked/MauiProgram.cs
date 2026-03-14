@@ -24,6 +24,7 @@ namespace Hooked
             // Add device-specific services used by the Hooked.Shared project
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
             builder.Services.AddSingleton<IPhotoCaptureService, PhotoCaptureService>();
+            builder.Services.AddSingleton<ILocationService, MauiLocationService>();
 
             var databasePath = Path.Combine(FileSystem.AppDataDirectory, "hooked.db");
             builder.Services.AddHookedDatabase(databasePath);

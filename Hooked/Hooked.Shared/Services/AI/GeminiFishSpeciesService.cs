@@ -158,5 +158,85 @@ namespace Hooked.Shared.Services.AI
 
             return description;
         }
+
+        public async Task<string> GetEnvironmentalImpactAsync(string speciesName, double? lengthMeters, string? locationJson, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(speciesName))
+            {
+                throw new ArgumentException("Species name is required.", nameof(speciesName));
+            }
+
+            if (_client is null)
+            {
+                throw new InvalidOperationException("Gemini API key is not configured.");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var prompt = $"Is the fish species '{speciesName}' invasive or endangered";
+            if (!string.IsNullOrWhiteSpace(locationJson))
+            {
+                prompt += $" in the location described by {locationJson}?";
+            }
+            else
+            {
+                prompt += "?";
+            }
+
+            if (lengthMeters.HasValue)
+            {
+                prompt += $" The caught fish is {lengthMeters.Value} meters long. Are there any size limits or regulations I should be aware of?";
+            }
+            
+            prompt += " Provide a short, direct answer in 2 or 3 sentences max warning the user if they should not throw it back or if they must throw it back because of regulations.";
+
+            GenerateContentResponse response;
+
+            try
+            {
+                response = await _client.Models.GenerateContentAsync(
+                    model: ModelName,
+                    contents: new List<Content>
+                    {
+                        new()
+                        {
+                            Parts = new List<Part>
+                            {
+                                new()
+                                {
+                                    Text = prompt
+                                }
+                            }
+                        }
+                    }).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests || ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("too many requests", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RateLimitMessage, ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(ModelNotFoundMessage, ex);
+            }
+
+            var result = response?.Candidates?[0]?.Content?.Parts?[0]?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                throw new InvalidOperationException($"Could not generate an environmental impact for the species '{speciesName}'.");
+            }
+
+            // Remove excessive markdown like **bold** usually returned by Gemini 
+            result = result.Replace("**", "").Replace("*", "");
+
+            return result;
+        }
     }
 }
