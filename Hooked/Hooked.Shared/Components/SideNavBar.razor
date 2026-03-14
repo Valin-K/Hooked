@@ -1,6 +1,9 @@
 @implements IDisposable
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
+@inject ISocialService SocialService
+@inject INotificationService NotificationService
+@using Hooked.Shared.Services
 
 <aside class="side-nav ocean-glass" aria-label="Primary navigation">
     <a href="/" class="side-nav-brand" title="Hooked" aria-label="Hooked home">
@@ -19,6 +22,19 @@
                 </span>
             </a>
         }
+
+        <a href="/notifications"
+           class="@GetNavItemClass("/notifications") side-notif-link"
+           title="Notifications"
+           aria-label="Notifications">
+            <span class="side-nav-icon" aria-hidden="true">
+                <AppIcon Name="bell" Size="19" />
+            </span>
+            @if (_unreadCount > 0)
+            {
+                <span class="side-notif-badge" aria-label="@_unreadCount unread">@(_unreadCount > 99 ? "99+" : _unreadCount.ToString())</span>
+            }
+        </a>
     </nav>
 
     <button class="ghost-icon side-theme-toggle"
@@ -32,6 +48,8 @@
 
 @code {
     private bool _isDarkMode = true;
+    private int _unreadCount;
+    private Guid _currentUserId;
 
     private static readonly IReadOnlyList<NavItem> NavItems =
     [
@@ -48,6 +66,28 @@
     protected override void OnInitialized()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUnreadCountAsync().ConfigureAwait(false);
+    }
+
+    private async Task LoadUnreadCountAsync()
+    {
+        try
+        {
+            if (_currentUserId == Guid.Empty)
+            {
+                var user = await SocialService.ResolveCurrentUserAsync().ConfigureAwait(false);
+                _currentUserId = user.Id;
+            }
+            _unreadCount = await NotificationService.GetUnreadCountAsync(_currentUserId).ConfigureAwait(false);
+        }
+        catch
+        {
+            _unreadCount = 0;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -110,7 +150,11 @@
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        InvokeAsync(StateHasChanged);
+        InvokeAsync(async () =>
+        {
+            await LoadUnreadCountAsync().ConfigureAwait(false);
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

@@ -185,11 +185,12 @@
                         <input class="comment-input"
                                maxlength="500"
                                placeholder="Add a comment…"
-                               value="@GetCommentDraft(item.CatchId)"
-                               @oninput="e => SetCommentDraft(item.CatchId, e.Value?.ToString() ?? string.Empty)" />
+                               @bind:get="GetCommentDraft(item.CatchId)"
+                               @bind:set="v => SetCommentDraft(item.CatchId, v ?? string.Empty)"
+                               @bind:event="oninput" />
                         <button class="comment-submit"
                                 type="button"
-                                disabled="@commentBusy || string.IsNullOrWhiteSpace(GetCommentDraft(item.CatchId))"
+                                disabled="@(commentBusy || string.IsNullOrWhiteSpace(GetCommentDraft(item.CatchId)))"
                                 @onclick="() => SubmitCommentAsync(item)">
                             Post
                         </button>

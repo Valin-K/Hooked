@@ -10,19 +10,25 @@ namespace Hooked.Shared.Services
 {
     public sealed class SocialService : ISocialService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
 
-        public SocialService(HookedDbContext db)
+        public SocialService(IDbContextFactory<HookedDbContext> dbFactory)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         }
 
         public async Task<SocialUserLookupDto> ResolveCurrentUserAsync(string? preferredUsername = null, CancellationToken cancellationToken = default)
         {
+            await using var db = _dbFactory.CreateDbContext();
             SocialUserLookupDto? user = null;
             if (!string.IsNullOrWhiteSpace(preferredUsername))
             {
-                user = await GetUserByUsernameAsync(preferredUsername, cancellationToken).ConfigureAwait(false);
+                var normalized = preferredUsername.Trim();
+                user = await db.Users.AsNoTracking()
+                    .Where(u => u.Username == normalized)
+                    .Select(u => new SocialUserLookupDto(u.Id, u.Username, u.DisplayName, u.CreatedAt))
+                    .FirstOrDefaultAsync(cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             if (user is not null)
@@ -30,7 +36,7 @@ namespace Hooked.Shared.Services
                 return user;
             }
 
-            var fallbackUser = await _db.Users.AsNoTracking()
+            var fallbackUser = await db.Users.AsNoTracking()
                 .OrderBy(u => u.CreatedAt)
                 .ThenBy(u => u.Username)
                 .Select(u => new SocialUserLookupDto(u.Id, u.Username, u.DisplayName, u.CreatedAt))
@@ -47,7 +53,8 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
-            return await _db.Users.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.Users.AsNoTracking()
                 .Where(u => u.Id == userId)
                 .Select(u => new SocialUserLookupDto(u.Id, u.Username, u.DisplayName, u.CreatedAt))
                 .FirstOrDefaultAsync(cancellationToken)
@@ -61,8 +68,9 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
+            await using var db = _dbFactory.CreateDbContext();
             var normalized = username.Trim();
-            return await _db.Users.AsNoTracking()
+            return await db.Users.AsNoTracking()
                 .Where(u => u.Username == normalized)
                 .Select(u => new SocialUserLookupDto(u.Id, u.Username, u.DisplayName, u.CreatedAt))
                 .FirstOrDefaultAsync(cancellationToken)
@@ -71,8 +79,9 @@ namespace Hooked.Shared.Services
 
         public async Task<IReadOnlyList<SocialUserLookupDto>> LookupUsersAsync(string? query = null, int limit = 20, CancellationToken cancellationToken = default)
         {
+            await using var db = _dbFactory.CreateDbContext();
             var normalizedLimit = Math.Clamp(limit, 1, 100);
-            var users = _db.Users.AsNoTracking();
+            var users = db.Users.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(query))
             {
@@ -97,7 +106,8 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Username is required.", nameof(username));
             }
 
-            var user = await _db.Users.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            var user = await db.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Username == username.Trim(), cancellationToken)
                 .ConfigureAwait(false);
             if (user is null)
@@ -105,7 +115,7 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
-            return await BuildProfileSummaryAsync(user, viewerUserId, cancellationToken).ConfigureAwait(false);
+            return await BuildProfileSummaryAsync(user, viewerUserId, db, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SocialProfileSummaryDto?> GetProfileSummaryByIdAsync(Guid userId, Guid? viewerUserId = null, CancellationToken cancellationToken = default)
@@ -115,7 +125,8 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
-            var user = await _db.Users.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            var user = await db.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
                 .ConfigureAwait(false);
             if (user is null)
@@ -123,17 +134,19 @@ namespace Hooked.Shared.Services
                 return null;
             }
 
-            return await BuildProfileSummaryAsync(user, viewerUserId, cancellationToken).ConfigureAwait(false);
+            return await BuildProfileSummaryAsync(user, viewerUserId, db, cancellationToken).ConfigureAwait(false);
         }
 
-        public Task<IReadOnlyList<SocialCatchFeedItemDto>> GetUserFeedAsync(Guid userId, Guid viewerUserId, int limit = 25, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<SocialCatchFeedItemDto>> GetUserFeedAsync(Guid userId, Guid viewerUserId, int limit = 25, CancellationToken cancellationToken = default)
         {
-            return GetFeedAsync(c => c.UserId == userId, viewerUserId, limit, cancellationToken);
+            await using var db = _dbFactory.CreateDbContext();
+            return await GetFeedAsync(c => c.UserId == userId, viewerUserId, limit, db, cancellationToken);
         }
 
-        public Task<IReadOnlyList<SocialCatchFeedItemDto>> GetCommunityFeedAsync(Guid viewerUserId, int limit = 25, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<SocialCatchFeedItemDto>> GetCommunityFeedAsync(Guid viewerUserId, int limit = 25, CancellationToken cancellationToken = default)
         {
-            return GetFeedAsync(c => c.UserId != viewerUserId, viewerUserId, limit, cancellationToken);
+            await using var db = _dbFactory.CreateDbContext();
+            return await GetFeedAsync(c => c.UserId != viewerUserId, viewerUserId, limit, db, cancellationToken);
         }
 
         public async Task<bool> FollowAsync(Guid userId, Guid targetUserId, CancellationToken cancellationToken = default)
@@ -153,10 +166,11 @@ namespace Hooked.Shared.Services
                 return false;
             }
 
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
-            await EnsureUserExistsAsync(targetUserId, cancellationToken).ConfigureAwait(false);
+            await using var db = _dbFactory.CreateDbContext();
+            await EnsureUserExistsAsync(userId, db, cancellationToken).ConfigureAwait(false);
+            await EnsureUserExistsAsync(targetUserId, db, cancellationToken).ConfigureAwait(false);
 
-            var alreadyFollowing = await _db.FriendRelations
+            var alreadyFollowing = await db.FriendRelations
                 .AnyAsync(f => f.UserId == userId && f.FriendId == targetUserId, cancellationToken)
                 .ConfigureAwait(false);
             if (alreadyFollowing)
@@ -164,14 +178,32 @@ namespace Hooked.Shared.Services
                 return false;
             }
 
-            _db.FriendRelations.Add(new FriendRelation
+            db.FriendRelations.Add(new FriendRelation
             {
                 UserId = userId,
                 FriendId = targetUserId,
                 Since = DateTime.UtcNow
             });
 
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            var follower = await db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.Username, u.DisplayName })
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var followerName = follower?.DisplayName ?? follower?.Username ?? "Someone";
+
+            db.Notifications.Add(new Notification
+            {
+                UserId = targetUserId,
+                Type = "follow",
+                Title = $"{followerName} started following you",
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+                TriggeredByUserId = userId
+            });
+
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
 
@@ -187,7 +219,8 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Target user ID is required.", nameof(targetUserId));
             }
 
-            var relation = await _db.FriendRelations
+            await using var db = _dbFactory.CreateDbContext();
+            var relation = await db.FriendRelations
                 .FirstOrDefaultAsync(f => f.UserId == userId && f.FriendId == targetUserId, cancellationToken)
                 .ConfigureAwait(false);
             if (relation is null)
@@ -195,8 +228,8 @@ namespace Hooked.Shared.Services
                 return false;
             }
 
-            _db.FriendRelations.Remove(relation);
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            db.FriendRelations.Remove(relation);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
 
@@ -212,31 +245,61 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("User ID is required.", nameof(userId));
             }
 
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
-            await EnsureCatchExistsAsync(catchId, cancellationToken).ConfigureAwait(false);
+            await using var db = _dbFactory.CreateDbContext();
+            await EnsureUserExistsAsync(userId, db, cancellationToken).ConfigureAwait(false);
+            await EnsureCatchExistsAsync(catchId, db, cancellationToken).ConfigureAwait(false);
 
-            var existingReaction = await _db.CatchReactions
+            var existingReaction = await db.CatchReactions
                 .FirstOrDefaultAsync(r => r.CatchId == catchId && r.UserId == userId, cancellationToken)
                 .ConfigureAwait(false);
 
             var isReacted = existingReaction is null;
             if (existingReaction is null)
             {
-                _db.CatchReactions.Add(new CatchReaction
+                db.CatchReactions.Add(new CatchReaction
                 {
                     CatchId = catchId,
                     UserId = userId,
                     ReactedAt = DateTime.UtcNow
                 });
+
+                var catchInfo = await db.CatchRecords
+                    .Where(c => c.Id == catchId)
+                    .Select(c => new { c.UserId, SpeciesName = c.Species!.CommonName })
+                    .FirstOrDefaultAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (catchInfo != null && catchInfo.UserId != userId)
+                {
+                    var reactor = await db.Users
+                        .Where(u => u.Id == userId)
+                        .Select(u => new { u.Username, u.DisplayName })
+                        .FirstOrDefaultAsync(cancellationToken)
+                        .ConfigureAwait(false);
+
+                    var reactorName = reactor?.DisplayName ?? reactor?.Username ?? "Someone";
+                    var speciesText = string.IsNullOrWhiteSpace(catchInfo.SpeciesName) ? "catch" : $"{catchInfo.SpeciesName} catch";
+
+                    db.Notifications.Add(new Notification
+                    {
+                        UserId = catchInfo.UserId,
+                        Type = "reaction",
+                        Title = $"{reactorName} liked your {speciesText}",
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow,
+                        CatchId = catchId,
+                        TriggeredByUserId = userId
+                    });
+                }
             }
             else
             {
-                _db.CatchReactions.Remove(existingReaction);
+                db.CatchReactions.Remove(existingReaction);
             }
 
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            var reactionCount = await _db.CatchReactions
+            var reactionCount = await db.CatchReactions
                 .CountAsync(r => r.CatchId == catchId, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -266,8 +329,14 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Comment text cannot exceed 500 characters.", nameof(commentText));
             }
 
-            await EnsureCatchExistsAsync(catchId, cancellationToken).ConfigureAwait(false);
-            var commenter = await GetUserByIdAsync(userId, cancellationToken).ConfigureAwait(false)
+            await using var db = _dbFactory.CreateDbContext();
+            await EnsureCatchExistsAsync(catchId, db, cancellationToken).ConfigureAwait(false);
+
+            var commenter = await db.Users.AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => new SocialUserLookupDto(u.Id, u.Username, u.DisplayName, u.CreatedAt))
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false)
                 ?? throw new KeyNotFoundException($"User '{userId}' was not found.");
 
             var comment = new CatchComment
@@ -278,8 +347,35 @@ namespace Hooked.Shared.Services
                 CommentedAt = DateTime.UtcNow
             };
 
-            _db.CatchComments.Add(comment);
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            db.CatchComments.Add(comment);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            var catchInfo = await db.CatchRecords
+                .Where(c => c.Id == catchId)
+                .Select(c => new { c.UserId, SpeciesName = c.Species!.CommonName })
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (catchInfo != null && catchInfo.UserId != userId)
+            {
+                var commenterName = commenter.DisplayName ?? commenter.Username;
+                var speciesText = string.IsNullOrWhiteSpace(catchInfo.SpeciesName) ? "catch" : $"{catchInfo.SpeciesName} catch";
+                var preview = sanitizedComment.Length > 100 ? string.Concat(sanitizedComment.AsSpan(0, 97), "…") : sanitizedComment;
+
+                db.Notifications.Add(new Notification
+                {
+                    UserId = catchInfo.UserId,
+                    Type = "comment",
+                    Title = $"{commenterName} commented on your {speciesText}",
+                    Body = preview,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow,
+                    CatchId = catchId,
+                    TriggeredByUserId = userId
+                });
+
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             return new SocialCommentDto(
                 comment.Id,
@@ -315,7 +411,8 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Comment text cannot exceed 500 characters.", nameof(newText));
             }
 
-            var comment = await _db.CatchComments
+            await using var db = _dbFactory.CreateDbContext();
+            var comment = await db.CatchComments
                 .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.Id == commentId, cancellationToken)
                 .ConfigureAwait(false)
@@ -328,7 +425,7 @@ namespace Hooked.Shared.Services
 
             comment.CommentText = sanitized;
             comment.EditedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             var username = comment.User?.Username ?? string.Empty;
             var displayName = comment.User?.DisplayName;
@@ -347,7 +444,8 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("User ID is required.", nameof(requestingUserId));
             }
 
-            var comment = await _db.CatchComments
+            await using var db = _dbFactory.CreateDbContext();
+            var comment = await db.CatchComments
                 .FirstOrDefaultAsync(c => c.Id == commentId, cancellationToken)
                 .ConfigureAwait(false)
                 ?? throw new KeyNotFoundException($"Comment '{commentId}' was not found.");
@@ -357,17 +455,17 @@ namespace Hooked.Shared.Services
                 throw new UnauthorizedAccessException("You can only delete your own comments.");
             }
 
-            _db.CatchComments.Remove(comment);
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            db.CatchComments.Remove(comment);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<SocialProfileSummaryDto> BuildProfileSummaryAsync(User user, Guid? viewerUserId, CancellationToken cancellationToken)
+        private async Task<SocialProfileSummaryDto> BuildProfileSummaryAsync(User user, Guid? viewerUserId, HookedDbContext db, CancellationToken cancellationToken)
         {
-            var catchCount = await _db.CatchRecords.CountAsync(c => c.UserId == user.Id, cancellationToken).ConfigureAwait(false);
-            var followerCount = await _db.FriendRelations.CountAsync(f => f.FriendId == user.Id, cancellationToken).ConfigureAwait(false);
-            var followingCount = await _db.FriendRelations.CountAsync(f => f.UserId == user.Id, cancellationToken).ConfigureAwait(false);
+            var catchCount = await db.CatchRecords.CountAsync(c => c.UserId == user.Id, cancellationToken).ConfigureAwait(false);
+            var followerCount = await db.FriendRelations.CountAsync(f => f.FriendId == user.Id, cancellationToken).ConfigureAwait(false);
+            var followingCount = await db.FriendRelations.CountAsync(f => f.UserId == user.Id, cancellationToken).ConfigureAwait(false);
 
-            var isFollowing = viewerUserId.HasValue && await _db.FriendRelations
+            var isFollowing = viewerUserId.HasValue && await db.FriendRelations
                 .AnyAsync(f => f.UserId == viewerUserId.Value && f.FriendId == user.Id, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -386,6 +484,7 @@ namespace Hooked.Shared.Services
             System.Linq.Expressions.Expression<Func<CatchRecord, bool>> filter,
             Guid viewerUserId,
             int limit,
+            HookedDbContext db,
             CancellationToken cancellationToken)
         {
             if (viewerUserId == Guid.Empty)
@@ -395,7 +494,7 @@ namespace Hooked.Shared.Services
 
             var normalizedLimit = Math.Clamp(limit, 1, 100);
 
-            var catches = await _db.CatchRecords.AsNoTracking()
+            var catches = await db.CatchRecords.AsNoTracking()
                 .Where(filter)
                 .OrderByDescending(c => c.CaughtAt)
                 .Take(normalizedLimit)
@@ -423,7 +522,7 @@ namespace Hooked.Shared.Services
             }
 
             var catchIds = catches.Select(c => c.CatchId).ToList();
-            var recentComments = await _db.CatchComments.AsNoTracking()
+            var recentComments = await db.CatchComments.AsNoTracking()
                 .Where(c => catchIds.Contains(c.CatchId))
                 .OrderByDescending(c => c.CommentedAt)
                 .Select(c => new FeedCommentProjection(
@@ -468,18 +567,18 @@ namespace Hooked.Shared.Services
                 .ToList();
         }
 
-        private async Task EnsureUserExistsAsync(Guid userId, CancellationToken cancellationToken)
+        private async Task EnsureUserExistsAsync(Guid userId, HookedDbContext db, CancellationToken cancellationToken)
         {
-            var exists = await _db.Users.AnyAsync(u => u.Id == userId, cancellationToken).ConfigureAwait(false);
+            var exists = await db.Users.AnyAsync(u => u.Id == userId, cancellationToken).ConfigureAwait(false);
             if (!exists)
             {
                 throw new KeyNotFoundException($"User '{userId}' was not found.");
             }
         }
 
-        private async Task EnsureCatchExistsAsync(Guid catchId, CancellationToken cancellationToken)
+        private async Task EnsureCatchExistsAsync(Guid catchId, HookedDbContext db, CancellationToken cancellationToken)
         {
-            var exists = await _db.CatchRecords.AnyAsync(c => c.Id == catchId, cancellationToken).ConfigureAwait(false);
+            var exists = await db.CatchRecords.AnyAsync(c => c.Id == catchId, cancellationToken).ConfigureAwait(false);
             if (!exists)
             {
                 throw new KeyNotFoundException($"Catch '{catchId}' was not found.");
