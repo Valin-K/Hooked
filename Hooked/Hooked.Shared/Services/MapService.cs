@@ -12,20 +12,21 @@ namespace Hooked.Shared.Services
 {
     public sealed class MapService : IMapService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
 
         public string MapboxAccessToken { get; }
 
-        public MapService(HookedDbContext db, IConfiguration configuration)
+        public MapService(IDbContextFactory<HookedDbContext> dbFactory, IConfiguration configuration)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             MapboxAccessToken = configuration["Mapbox:AccessToken"] ?? string.Empty;
         }
 
         public async Task<IReadOnlyList<MapCatchPinDto>> GetCatchPinsAsync(
             CancellationToken cancellationToken = default)
         {
-            var catches = await _db.CatchRecords.AsNoTracking()
+            await using var db = _dbFactory.CreateDbContext();
+            var catches = await db.CatchRecords.AsNoTracking()
                 .Where(c => c.LocationJson != null)
                 .OrderByDescending(c => c.CaughtAt)
                 .Take(200)
@@ -100,7 +101,7 @@ namespace Hooked.Shared.Services
             }
             catch
             {
-                // unparseable location — skip
+                // unparseable location ï¿½ skip
             }
 
             return false;
