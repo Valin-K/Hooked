@@ -155,6 +155,33 @@ namespace Hooked.Web.Api
                 }
             }).WithName("AddCatchComment");
 
+            var sightings = group.MapGroup("/sightings");
+
+            sightings.MapGet("/recent", async (ISightingService sightingService, int? limit, CancellationToken cancellationToken) =>
+                Results.Ok(await sightingService.GetRecentSightingsAsync(limit ?? 50, cancellationToken).ConfigureAwait(false))
+            ).WithName("GetRecentSightings");
+
+            sightings.MapGet("/user/{userId:guid}", async (ISightingService sightingService, Guid userId, int? limit, CancellationToken cancellationToken) =>
+                Results.Ok(await sightingService.GetUserSightingsAsync(userId, limit ?? 50, cancellationToken).ConfigureAwait(false))
+            ).WithName("GetUserSightings");
+
+            sightings.MapPost("/", async (ISightingService sightingService, ReportSightingApiRequest req, CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    var result = await sightingService.ReportSightingAsync(req.UserId, new ReportSightingRequest(req.SpeciesId, req.Note, req.LocationJson), cancellationToken).ConfigureAwait(false);
+                    return Results.Created($"/api/sightings/{result.Id}", result);
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    return Results.NotFound(new ErrorResponse(ex.Message));
+                }
+                catch (ArgumentException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+            }).WithName("ReportSighting");
+
             return app;
         }
 
@@ -169,6 +196,7 @@ namespace Hooked.Web.Api
         public sealed record ToggleReactionResponse(SocialReactionToggleDto Reaction);
         public sealed record AddCommentRequest(Guid CatchId, Guid UserId, string CommentText);
         public sealed record AddCommentResponse(SocialCommentDto Comment);
+        public sealed record ReportSightingApiRequest(Guid UserId, int SpeciesId, string? Note, string? LocationJson);
         public sealed record ErrorResponse(string Message);
     }
 }

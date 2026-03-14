@@ -25,13 +25,15 @@ namespace Hooked.Shared.Services
             services.AddScoped<IMapService, MapService>();
             services.AddScoped<ISessionService, SessionService>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<ISightingService, SightingService>();
 
             services.AddSingleton<InsightsCacheService>();
 
             services.AddScoped<IInsightsService>(sp =>
                 new InsightsService(
                     new System.Net.Http.HttpClient(),
-                    configuration["Gemini:ApiKey"]));
+                    configuration["Gemini:ApiKey"],
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InsightsService>>()));
 
             services.AddSingleton<IGeminiFishSpeciesService>(_ =>
                 new GeminiFishSpeciesService(configuration["Gemini:ApiKey"]));

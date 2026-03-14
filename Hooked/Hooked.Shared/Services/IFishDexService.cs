@@ -36,6 +36,7 @@ namespace Hooked.Shared.Services
         bool IsFirstCatchForUser,
         bool IsNewPersonalBest,
         bool WasImageGenerated,
+        bool IsInvasive,
         IReadOnlyList<AchievementUnlockDto> NewlyUnlockedAchievements);
 
     public sealed record FishDexOverviewDto(
@@ -51,6 +52,7 @@ namespace Hooked.Shared.Services
         DateTime? UnlockedAt,
         int CatchCount,
         double? PersonalBestLengthMeters,
+        bool IsInvasive,
         IReadOnlyList<FishDexCatchDto> Catches);
 
     public sealed record FishDexCatchDto(

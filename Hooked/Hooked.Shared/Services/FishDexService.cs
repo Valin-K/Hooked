@@ -176,6 +176,7 @@ namespace Hooked.Shared.Services
                 isFirstCatchForUser,
                 isNewPersonalBest,
                 wasImageGenerated,
+                fishSpecies.IsInvasive,
                 newAchievements);
         }
 
@@ -198,7 +199,8 @@ namespace Hooked.Shared.Services
                     species.Id,
                     species.CommonName,
                     species.ScientificName,
-                    species.IllustrationImageUrl
+                    species.IllustrationImageUrl,
+                    species.IsInvasive
                 })
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -259,6 +261,7 @@ namespace Hooked.Shared.Services
                         hasEntry ? entry!.UnlockedAt : null,
                         hasEntry ? entry!.CatchCount : 0,
                         hasEntry ? entry!.PersonalBestLengthMeters : null,
+                        species.IsInvasive,
                         catchesBySpeciesId.TryGetValue(species.Id, out var catches)
                             ? catches
                             : Array.Empty<FishDexCatchDto>());

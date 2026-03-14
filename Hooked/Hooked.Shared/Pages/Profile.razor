@@ -3,6 +3,7 @@
 @using Hooked.Shared.Services
 @inject ISocialService SocialService
 @inject IAchievementService AchievementService
+@inject IUserService UserService
 @inject NavigationManager NavigationManager
 
 <PageTitle>@GetPageTitle()</PageTitle>
@@ -67,7 +68,54 @@
                     @(_profile.IsFollowing ? "Unfollow" : "Follow")
                 </button>
             }
+            else
+            {
+                <button class="action secondary edit-profile-btn"
+                        type="button"
+                        @onclick="ToggleEditMode">
+                    @(_isEditMode ? "Cancel" : "Edit Profile")
+                </button>
+            }
         </section>
+
+        @if (_isEditMode && !IsViewingOtherUser)
+        {
+            <section class="ocean-glass profile-edit-form">
+                <div class="edit-form-title">Edit Profile</div>
+
+                <div class="edit-field">
+                    <label class="edit-label" for="edit-display-name">Display Name</label>
+                    <input id="edit-display-name"
+                           class="edit-input"
+                           type="text"
+                           maxlength="100"
+                           placeholder="Your display name"
+                           @bind="_editDisplayName" />
+                </div>
+
+                <div class="edit-field">
+                    <label class="edit-label" for="edit-email">Email</label>
+                    <input id="edit-email"
+                           class="edit-input"
+                           type="email"
+                           maxlength="254"
+                           placeholder="your@email.com"
+                           @bind="_editEmail" />
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_editError))
+                {
+                    <p class="edit-error">@_editError</p>
+                }
+
+                <button class="action primary edit-save-btn"
+                        type="button"
+                        disabled="@_isSavingEdit"
+                        @onclick="SaveProfileAsync">
+                    @(_isSavingEdit ? "Saving…" : "Save Changes")
+                </button>
+            </section>
+        }
 
         @if (!string.IsNullOrWhiteSpace(_actionError))
         {
@@ -271,6 +319,13 @@
     private string? _loadError;
     private string? _actionError;
 
+    // Edit profile
+    private bool _isEditMode;
+    private bool _isSavingEdit;
+    private string? _editDisplayName;
+    private string? _editEmail;
+    private string? _editError;
+
     private bool IsViewingOtherUser =>
         _currentUser is not null &&
         _profile is not null &&
@@ -333,6 +388,40 @@
     private async Task ReloadAsync()
     {
         await LoadProfileAsync();
+    }
+
+    private void ToggleEditMode()
+    {
+        _isEditMode = !_isEditMode;
+        _editError = null;
+        if (_isEditMode && _profile is not null)
+        {
+            _editDisplayName = _profile.DisplayName;
+            _editEmail = null;
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (_currentUser is null || _isSavingEdit) return;
+
+        _editError = null;
+        _isSavingEdit = true;
+
+        try
+        {
+            await UserService.UpdateProfileAsync(_currentUser.Id, _editDisplayName, _editEmail);
+            _isEditMode = false;
+            await LoadProfileAsync();
+        }
+        catch (Exception ex)
+        {
+            _editError = ex.Message;
+        }
+        finally
+        {
+            _isSavingEdit = false;
+        }
     }
 
     private async Task ToggleFollowAsync()

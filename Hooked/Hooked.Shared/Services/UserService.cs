@@ -51,5 +51,17 @@ namespace Hooked.Shared.Services
             if (u is null) return null;
             return new UserDto(u.Id, u.Username, u.DisplayName, u.Email, u.CreatedAt);
         }
+        public async Task UpdateProfileAsync(Guid userId, string? displayName, string? email, CancellationToken cancellationToken = default)
+        {
+            if (userId == Guid.Empty) throw new ArgumentException("User ID is required.", nameof(userId));
+
+            await using var db = _dbFactory.CreateDbContext();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken).ConfigureAwait(false);
+            if (user is null) throw new KeyNotFoundException($"User '{userId}' was not found.");
+
+            user.DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+            user.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 }

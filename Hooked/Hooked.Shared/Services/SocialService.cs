@@ -196,7 +196,7 @@ namespace Hooked.Shared.Services
             db.Notifications.Add(new Notification
             {
                 UserId = targetUserId,
-                Type = "follow",
+                Type = NotificationType.Follow,
                 Title = $"{followerName} started following you",
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
@@ -283,7 +283,7 @@ namespace Hooked.Shared.Services
                     db.Notifications.Add(new Notification
                     {
                         UserId = catchInfo.UserId,
-                        Type = "reaction",
+                        Type = NotificationType.Reaction,
                         Title = $"{reactorName} liked your {speciesText}",
                         IsRead = false,
                         CreatedAt = DateTime.UtcNow,
@@ -365,7 +365,7 @@ namespace Hooked.Shared.Services
                 db.Notifications.Add(new Notification
                 {
                     UserId = catchInfo.UserId,
-                    Type = "comment",
+                    Type = NotificationType.Comment,
                     Title = $"{commenterName} commented on your {speciesText}",
                     Body = preview,
                     IsRead = false,

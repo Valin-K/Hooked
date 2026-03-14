@@ -9,8 +9,7 @@ namespace Hooked.Shared.Data
         /// <summary>The user who receives this notification.</summary>
         public Guid UserId { get; set; }
 
-        /// <summary>"follow", "reaction", "comment", or "achievement".</summary>
-        public string Type { get; set; } = null!;
+        public NotificationType Type { get; set; }
 
         /// <summary>Short display text, e.g. "captainbrook liked your Snapper catch".</summary>
         public string Title { get; set; } = null!;

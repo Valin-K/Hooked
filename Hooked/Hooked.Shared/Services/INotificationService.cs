@@ -1,3 +1,4 @@
+using Hooked.Shared.Data;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -7,7 +8,7 @@ namespace Hooked.Shared.Services
 {
     public record NotificationDto(
         Guid Id,
-        string Type,
+        NotificationType Type,
         string Title,
         string? Body,
         bool IsRead,

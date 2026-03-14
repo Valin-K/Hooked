@@ -87,6 +87,10 @@
                             @if (speciesCard.IsUnlocked)
                             {
                                 <div class="fish-pb">@FormatPersonalBestCompact(speciesCard.PersonalBestLengthMeters)</div>
+                                @if (speciesCard.IsInvasive)
+                                {
+                                    <div class="fish-invasive-badge">⚡ Invasive</div>
+                                }
                             }
                         </div>
                     </article>

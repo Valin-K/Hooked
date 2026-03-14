@@ -1,0 +1,190 @@
+@page "/sightings"
+@using Hooked.Shared.Services
+@using Hooked.Shared.Data
+@inject ISightingService SightingService
+@inject ISocialService SocialService
+@inject IFishService FishService
+@inject ILocationService LocationService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Sightings · Hooked</PageTitle>
+
+<div class="mobile-shell sightings-shell">
+    <header class="sightings-header ocean-glass">
+        <div>
+            <div class="sightings-kicker">Community</div>
+            <h1>Fish Sightings</h1>
+        </div>
+        <button class="report-btn action primary"
+                type="button"
+                @onclick="ToggleReportForm">
+            @(_showForm ? "Cancel" : "+ Report")
+        </button>
+    </header>
+
+    @if (_showForm)
+    {
+        <section class="ocean-glass sightings-form-card">
+            <div class="form-title">Report a Sighting</div>
+
+            <div class="form-field">
+                <label class="form-label" for="sighting-species">Species</label>
+                <select id="sighting-species" class="form-select" @bind="_selectedSpeciesId">
+                    <option value="0">— select species —</option>
+                    @foreach (var s in _allSpecies)
+                    {
+                        <option value="@s.Id">@s.CommonName</option>
+                    }                </select>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="sighting-note">Note <span class="form-opt">(optional)</span></label>
+                <textarea id="sighting-note"
+                          class="form-textarea"
+                          maxlength="500"
+                          placeholder="e.g. Spotted near the jetty…"
+                          @bind="_noteText"></textarea>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_formError))
+            {
+                <p class="form-error">@_formError</p>
+            }
+
+            <button class="action primary form-submit"
+                    type="button"
+                    disabled="@(_isSubmitting || _selectedSpeciesId == 0)"
+                    @onclick="SubmitSightingAsync">
+                @(_isSubmitting ? "Reporting…" : "Submit Sighting")
+            </button>
+        </section>
+    }
+
+    @if (_isLoading)
+    {
+        <section class="ocean-glass sightings-state">
+            <p class="muted">Loading sightings…</p>
+        </section>
+    }
+    else if (_sightings.Count == 0)
+    {
+        <section class="ocean-glass sightings-state">
+            <p class="muted">No sightings reported yet. Be the first!</p>
+        </section>
+    }
+    else
+    {
+        <section class="sightings-list">
+            @foreach (var s in _sightings)
+            {
+                <article class="ocean-glass sighting-card">
+                    <div class="sighting-head">
+                        <a href="/profile/@Uri.EscapeDataString(s.Username)" class="sighting-user">
+                            @(s.DisplayName ?? s.Username) <span class="muted">@("@"+s.Username)</span>
+                        </a>
+                        <span class="sighting-time muted">@GetRelativeTime(s.ReportedAt)</span>
+                    </div>
+                    <div class="sighting-species">
+                        <AppIcon Name="fish" Size="14" /> @s.SpeciesCommonName
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(s.Note))
+                    {
+                        <p class="sighting-note muted">@s.Note</p>
+                    }
+                </article>
+            }
+        </section>
+    }
+
+    <BottomNav />
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _showForm;
+    private bool _isSubmitting;
+    private List<SightingDto> _sightings = [];
+    private List<FishSpecies> _allSpecies = [];
+    private int _selectedSpeciesId;
+    private string _noteText = string.Empty;
+    private string? _formError;
+    private Guid _currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = await SocialService.ResolveCurrentUserAsync();
+            _currentUserId = user.Id;
+
+            var sightings = await SightingService.GetRecentSightingsAsync(50);
+            var species = await FishService.SearchSpeciesAsync(null);
+
+            _sightings = sightings.ToList();
+            _allSpecies = species.OrderBy(s => s.CommonName).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Sightings load error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleReportForm()
+    {
+        _showForm = !_showForm;
+        _formError = null;
+        _selectedSpeciesId = 0;
+        _noteText = string.Empty;
+    }
+
+    private async Task SubmitSightingAsync()
+    {
+        if (_isSubmitting || _selectedSpeciesId == 0) return;
+
+        _formError = null;
+        _isSubmitting = true;
+
+        try
+        {
+            var location = await LocationService.GetCurrentLocationAsync();
+            var locationJson = location != null
+                ? System.Text.Json.JsonSerializer.Serialize(new { lat = location.Latitude, lon = location.Longitude, desc = location.Description })
+                : null;
+
+            var sighting = await SightingService.ReportSightingAsync(
+                _currentUserId,
+                new ReportSightingRequest(_selectedSpeciesId, _noteText, locationJson));
+
+            _sightings.Insert(0, sighting);
+            _showForm = false;
+            _selectedSpeciesId = 0;
+            _noteText = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string GetRelativeTime(DateTime utc)
+    {
+        var diff = DateTime.UtcNow - utc;
+        return diff switch
+        {
+            { TotalSeconds: < 60 } => "just now",
+            { TotalMinutes: < 60 } => $"{(int)diff.TotalMinutes}m ago",
+            { TotalHours: < 24 } => $"{(int)diff.TotalHours}h ago",
+            { TotalDays: < 2 } => "yesterday",
+            { TotalDays: < 7 } => $"{(int)diff.TotalDays}d ago",
+            _ => utc.ToLocalTime().ToString("MMM d")
+        };
+    }
+}

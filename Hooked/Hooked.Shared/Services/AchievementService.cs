@@ -122,7 +122,7 @@ namespace Hooked.Shared.Services
                 db.Notifications.Add(new Notification
                 {
                     UserId = userId,
-                    Type = "achievement",
+                    Type = NotificationType.Achievement,
                     Title = $"Achievement unlocked: {achievement.Title}",
                     Body = achievement.Description,
                     IsRead = false,

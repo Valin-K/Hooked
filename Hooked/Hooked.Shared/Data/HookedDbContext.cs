@@ -40,9 +40,6 @@ namespace Hooked.Shared.Data
         // Per-user earned achievements
         public DbSet<UserAchievement> UserAchievements { get; set; } = null!;
 
-        // Cached leaderboard entries (optional)
-        public DbSet<LeaderboardEntry> LeaderboardEntries { get; set; } = null!;
-
         // In-app notifications
         public DbSet<Notification> Notifications { get; set; } = null!;
 
@@ -177,13 +174,6 @@ namespace Hooked.Shared.Data
                 b.HasIndex(ua => ua.EarnedAt);
             });
 
-            modelBuilder.Entity<LeaderboardEntry>(b =>
-            {
-                b.HasKey(l => l.Id);
-                b.HasIndex(l => new { l.Category, l.Score });
-                b.HasOne(l => l.User).WithMany().HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
-            });
-
             modelBuilder.Entity<Notification>(b =>
             {
                 b.HasKey(n => n.Id);
@@ -192,7 +182,11 @@ namespace Hooked.Shared.Data
                 b.HasOne(n => n.TriggeredByUser).WithMany().HasForeignKey(n => n.TriggeredByUserId).OnDelete(DeleteBehavior.SetNull);
                 b.HasOne(n => n.Achievement).WithMany().HasForeignKey(n => n.AchievementId).OnDelete(DeleteBehavior.SetNull);
 
-                b.Property(n => n.Type).HasMaxLength(50).IsRequired();
+                b.Property(n => n.Type)
+                    .HasConversion(
+                        v => v.ToString().ToLowerInvariant(),
+                        v => Enum.Parse<NotificationType>(v, ignoreCase: true))
+                    .HasMaxLength(50).IsRequired();
                 b.Property(n => n.Title).HasMaxLength(300).IsRequired();
                 b.Property(n => n.Body).HasMaxLength(500);
 

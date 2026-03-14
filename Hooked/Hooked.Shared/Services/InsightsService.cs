@@ -1,4 +1,5 @@
 using Hooked.Shared.Services.AI;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -17,11 +18,13 @@ namespace Hooked.Shared.Services
         private const string ModelName = "gemini-2.5-flash";
         private readonly HttpClient _http;
         private readonly Client? _gemini;
+        private readonly ILogger<InsightsService> _logger;
 
-        public InsightsService(HttpClient httpClient, string? geminiApiKey)
+        public InsightsService(HttpClient httpClient, string? geminiApiKey, ILogger<InsightsService> logger)
         {
             _http = httpClient;
             _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HookedApp/1.0");
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             if (!string.IsNullOrWhiteSpace(geminiApiKey))
                 _gemini = new Client(apiKey: geminiApiKey);
         }
@@ -43,7 +46,7 @@ namespace Hooked.Shared.Services
             double tempC = 0, feelsC = 0, windKmh = 0, windDir = 0;
             int weatherCode = 0;
             double waveH = 0, waveP = 0;
-            string locationLabel = $"{lat:F2}°, {lng:F2}°";
+            string locationLabel = $"{lat:F2}ï¿½, {lng:F2}ï¿½";
 
             try
             {
@@ -58,7 +61,10 @@ namespace Hooked.Shared.Services
                     weatherCode = cur.GetProperty("weather_code").GetInt32();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch weather data for ({Lat}, {Lng})", lat, lng);
+            }
 
             try
             {
@@ -70,7 +76,10 @@ namespace Hooked.Shared.Services
                     waveP = cur.GetProperty("wave_period").GetDouble();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch marine data for ({Lat}, {Lng})", lat, lng);
+            }
 
             try
             {
@@ -88,7 +97,10 @@ namespace Hooked.Shared.Services
                         locationLabel = suburb!;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch reverse-geocode data for ({Lat}, {Lng})", lat, lng);
+            }
 
             var windDirLabel = WindDirectionLabel(windDir);
             var weatherDesc = WmoDescription(weatherCode);
@@ -144,7 +156,7 @@ namespace Hooked.Shared.Services
 
             var prompt = $"""
                 You are a local fishing guide expert.
-                List exactly 5 prime fishing locations within ~50 km of coordinates {latS}°N, {lngS}°E.
+                List exactly 5 prime fishing locations within ~50 km of coordinates {latS}ï¿½N, {lngS}ï¿½E.
                 For each location respond with ONLY this exact pipe-delimited format on one line, no extra text:
                 NAME|TYPE|DISTANCE|TARGET_SPECIES|TIP
                 Where TYPE is one of: River, Lake, Bay, Estuary, Reef, Beach, Dam, Creek
@@ -197,10 +209,10 @@ namespace Hooked.Shared.Services
 
             var prompt = $"""
                 You are an expert on fishing regulations.
-                For the location at coordinates {latS}°, {lngS}°, provide a brief practical summary of key recreational fishing regulations for that region/state/country.
+                For the location at coordinates {latS}ï¿½, {lngS}ï¿½, provide a brief practical summary of key recreational fishing regulations for that region/state/country.
                 Cover: common bag limits for popular species, minimum size rules, licensing requirements, and any notable protected areas or seasonal restrictions.
                 Use bullet points. Keep it under 120 words. Remind the user to verify with the official local fisheries authority.
-                Do not fabricate specific numbers if unsure — say "check locally" instead.
+                Do not fabricate specific numbers if unsure ï¿½ say "check locally" instead.
                 """;
 
             try
@@ -230,7 +242,7 @@ namespace Hooked.Shared.Services
                 return "Gemini API key is not configured. Add `Gemini:ApiKey` to appsettings.json.";
 
             var locationContext = (lat.HasValue && lng.HasValue)
-                ? $"The user is located at approximately {lat.Value:F2}°, {lng.Value:F2}° (lat/lng)."
+                ? $"The user is located at approximately {lat.Value:F2}ï¿½, {lng.Value:F2}ï¿½ (lat/lng)."
                 : "The user's location is not available.";
 
             var systemPrompt = $"""
@@ -239,7 +251,7 @@ namespace Hooked.Shared.Services
                 {locationContext}
                 Today is {DateTime.Now:dddd, d MMMM yyyy}.
                 Keep responses concise and practical. Use Markdown for formatting where it aids readability (bold key points, bullet lists for tips).
-                Do not make up specific regulations — remind users to check their local authority.
+                Do not make up specific regulations ï¿½ remind users to check their local authority.
                 """;
 
             try
@@ -290,7 +302,7 @@ namespace Hooked.Shared.Services
             _ => "Unknown"
         };
 
-        // Returns WMO code bucket 0–6 for SVG icon selection in the UI
+        // Returns WMO code bucket 0ï¿½6 for SVG icon selection in the UI
         public static int WmoIconBucket(int code) => code switch
         {
             0 => 0,          // clear
@@ -309,7 +321,7 @@ namespace Hooked.Shared.Services
             var isRain = weatherCode is >= 61 and <= 82;
 
             if (isStorm || windKmh > 45 || waveH > 2.5)
-                return (FishingQuality.Poor, "Dangerous conditions — high winds or swell. Stay safe.");
+                return (FishingQuality.Poor, "Dangerous conditions ï¿½ high winds or swell. Stay safe.");
 
             if (windKmh > 25 || waveH > 1.5 || isRain)
                 return (FishingQuality.Fair, "Challenging conditions. Seek sheltered water.");
@@ -317,7 +329,7 @@ namespace Hooked.Shared.Services
             if (windKmh < 15 && waveH < 0.6)
                 return (FishingQuality.Excellent, "Calm, ideal conditions. Fish are active.");
 
-            return (FishingQuality.Good, "Good conditions — light wind and manageable swell.");
+            return (FishingQuality.Good, "Good conditions ï¿½ light wind and manageable swell.");
         }
 
         private static (string phase, string label) ApproximateTidePhase()
@@ -360,26 +372,26 @@ namespace Hooked.Shared.Services
 
         private static string BestTimeWindow(FishingQuality quality) => quality switch
         {
-            FishingQuality.Excellent => "Dawn (5–8 AM) and dusk (6–8 PM) — peak feeding windows today.",
+            FishingQuality.Excellent => "Dawn (5ï¿½8 AM) and dusk (6ï¿½8 PM) ï¿½ peak feeding windows today.",
             FishingQuality.Good      => "Early morning and late afternoon offer the best bite.",
             FishingQuality.Fair      => "Target the tide change periods for the best chance.",
-            _                        => "Wait for conditions to improve — safety first."
+            _                        => "Wait for conditions to improve ï¿½ safety first."
         };
 
         private static string StrategyTip(double windKmh, double waveH)
         {
             if (windKmh > 25 || waveH > 1.5)
                 return "Fish sheltered bays, estuaries, or the lee side of headlands to escape the chop. Position with wind at your back for distance and presentation.";
-            return "Target structure — rocky ledges, drop-offs, and weed beds at dawn or dusk. Minimal drift lets you work a spot thoroughly; use a sea anchor if needed.";
+            return "Target structure ï¿½ rocky ledges, drop-offs, and weed beds at dawn or dusk. Minimal drift lets you work a spot thoroughly; use a sea anchor if needed.";
         }
 
         private static string TechniqueTip(double lat, double tempC)
         {
             var isTropical = Math.Abs(lat) < 23.5;
             if (isTropical || tempC > 24)
-                return "Warm water activates surface feeders. Try surface poppers or stickbaits early morning. Match bait to local baitfish — pilchards or mullet are reliable berley.";
+                return "Warm water activates surface feeders. Try surface poppers or stickbaits early morning. Match bait to local baitfish ï¿½ pilchards or mullet are reliable berley.";
             if (tempC < 14)
-                return "Cold water slows metabolism — slow-roll soft plastics near the bottom. Berley with finely chopped pilchard to concentrate fish in a smaller area.";
+                return "Cold water slows metabolism ï¿½ slow-roll soft plastics near the bottom. Berley with finely chopped pilchard to concentrate fish in a smaller area.";
             return "Moderate temperatures suit a mix of techniques. Jig soft plastics around structure, or float-fish live bait over deeper holes. Use berley to draw fish up in the water column.";
         }
     }

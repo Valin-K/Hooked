@@ -107,6 +107,18 @@
     <BottomNav />
 </div>
 
+@if (_showInvasiveAlertPopup)
+{
+    <div class="scanner-popup-overlay" @onclick="CloseInvasiveAlertPopup">
+        <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
+            <h2>⚠️ Invasive Species</h2>
+            <p><strong>@_speciesName</strong> is classified as an invasive species in this region.</p>
+            <p class="muted">Please do not release this fish. Check with your local fisheries authority for handling and reporting requirements.</p>
+            <button class="action primary" type="button" @onclick="CloseInvasiveAlertPopup">Understood</button>
+        </div>
+    </div>
+}
+
 @if (_showGlobalDiscoveryPopup)
 {
     <div class="scanner-popup-overlay" @onclick="CloseGlobalDiscoveryPopup">
@@ -202,6 +214,7 @@
     private bool _showUnlockPopup;
     private bool _showPersonalBestPopup;
     private bool _showEnvironmentalPopup;
+    private bool _showInvasiveAlertPopup;
     private bool _showAchievementPopup;
     private List<AchievementUnlockDto> _pendingAchievements = [];
     private string? _environmentalImpactMessage;
@@ -314,6 +327,7 @@
         _showUnlockPopup = false;
         _showPersonalBestPopup = false;
         _showEnvironmentalPopup = false;
+        _showInvasiveAlertPopup = false;
         _showAchievementPopup = false;
         _pendingAchievements = [];
         _environmentalImpactMessage = null;
@@ -350,6 +364,7 @@
         _showUnlockPopup = false;
         _showPersonalBestPopup = false;
         _showEnvironmentalPopup = false;
+        _showInvasiveAlertPopup = false;
         _showAchievementPopup = false;
         _pendingAchievements = [];
         _statusMessage = "Scanning fish species...";
@@ -376,9 +391,10 @@
             _generatedFishImageUrl = scanResult.SpeciesImageUrl;
             _statusMessage = "Catch logged and FishDex updated.";
 
-            _showGlobalDiscoveryPopup = scanResult.IsNewGlobalSpecies;
-            _showUnlockPopup = scanResult.IsFirstCatchForUser && !scanResult.IsNewGlobalSpecies;
-            _showPersonalBestPopup = !scanResult.IsFirstCatchForUser && scanResult.IsNewPersonalBest;
+            _showInvasiveAlertPopup = scanResult.IsInvasive;
+            _showGlobalDiscoveryPopup = scanResult.IsNewGlobalSpecies && !scanResult.IsInvasive;
+            _showUnlockPopup = scanResult.IsFirstCatchForUser && !scanResult.IsNewGlobalSpecies && !scanResult.IsInvasive;
+            _showPersonalBestPopup = !scanResult.IsFirstCatchForUser && scanResult.IsNewPersonalBest && !scanResult.IsInvasive;
 
             if (scanResult.NewlyUnlockedAchievements.Count > 0)
             {
@@ -420,7 +436,7 @@
             // If popups are showing, the navigation happens when the user dismisses the last popup.
             if (_hasActiveSession)
             {
-                if (!_showGlobalDiscoveryPopup && !_showUnlockPopup && !_showPersonalBestPopup && !_showEnvironmentalPopup && !_showAchievementPopup)
+                if (!_showInvasiveAlertPopup && !_showGlobalDiscoveryPopup && !_showUnlockPopup && !_showPersonalBestPopup && !_showEnvironmentalPopup && !_showAchievementPopup)
                 {
                     _statusMessage = "Catch logged to your active session. Returning...";
                     await Task.Delay(1500); // Give them a moment to read the results
@@ -478,6 +494,12 @@
         NavigationManager.NavigateTo("/fishdex");
     }
 
+    private void CloseInvasiveAlertPopup()
+    {
+        _showInvasiveAlertPopup = false;
+        CheckNavigateToSession();
+    }
+
     private void CloseGlobalDiscoveryPopup()
     {
         _showGlobalDiscoveryPopup = false;
@@ -519,6 +541,7 @@
     private void CheckNavigateToSession()
     {
         if (_hasActiveSession && 
+            !_showInvasiveAlertPopup &&
             !_showGlobalDiscoveryPopup && 
             !_showUnlockPopup && 
             !_showPersonalBestPopup && 

@@ -1,5 +1,6 @@
 @page "/notifications"
 @using Hooked.Shared.Services
+@using Hooked.Shared.Data
 @inject INotificationService NotificationService
 @inject ISocialService SocialService
 @inject NavigationManager NavigationManager
@@ -120,10 +121,10 @@
 
         var destination = n.Type switch
         {
-            "reaction" or "comment" when n.CatchId.HasValue => $"/fish/{n.CatchId}",
-            "follow" when n.TriggeredByUsername != null     => $"/profile/{n.TriggeredByUsername}",
-            "achievement"                                    => "/profile",
-            _                                                => null
+            NotificationType.Reaction or NotificationType.Comment when n.CatchId.HasValue => $"/fish/{n.CatchId}",
+            NotificationType.Follow when n.TriggeredByUsername != null                    => $"/profile/{n.TriggeredByUsername}",
+            NotificationType.Achievement                                                   => "/profile",
+            _                                                                              => null
         };
 
         if (destination != null)
@@ -167,21 +168,21 @@
         };
     }
 
-    private static string GetTypeIcon(string type) => type switch
+    private static string GetTypeIcon(NotificationType type) => type switch
     {
-        "follow"      => "user",
-        "reaction"    => "heart-filled",
-        "comment"     => "feed",
-        "achievement" => "trophy",
-        _             => "bell"
+        NotificationType.Follow      => "user",
+        NotificationType.Reaction    => "heart-filled",
+        NotificationType.Comment     => "feed",
+        NotificationType.Achievement => "trophy",
+        _                            => "bell"
     };
 
-    private static string GetTypeClass(string type) => type switch
+    private static string GetTypeClass(NotificationType type) => type switch
     {
-        "follow"      => "type-follow",
-        "reaction"    => "type-reaction",
-        "comment"     => "type-comment",
-        "achievement" => "type-achievement",
-        _             => "type-default"
+        NotificationType.Follow      => "type-follow",
+        NotificationType.Reaction    => "type-reaction",
+        NotificationType.Comment     => "type-comment",
+        NotificationType.Achievement => "type-achievement",
+        _                            => "type-default"
     };
 }

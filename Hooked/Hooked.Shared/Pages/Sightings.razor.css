@@ -1,0 +1,143 @@
+.sightings-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.sightings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+}
+
+.sightings-kicker {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-soft);
+    margin-bottom: 0.2rem;
+}
+
+.sightings-header h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.report-btn {
+    flex-shrink: 0;
+    padding: 0.45rem 1rem;
+    font-size: 0.85rem;
+}
+
+.sightings-form-card {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.form-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.form-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-soft);
+}
+
+.form-opt {
+    font-weight: 400;
+    opacity: 0.6;
+}
+
+.form-select,
+.form-textarea {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.5rem;
+    color: inherit;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.form-error {
+    color: #ff6b6b;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.form-submit {
+    align-self: flex-start;
+}
+
+.sightings-state {
+    padding: 2rem 1.5rem;
+    text-align: center;
+}
+
+.sightings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sighting-card {
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.sighting-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.sighting-user {
+    font-weight: 600;
+    font-size: 0.92rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.sighting-user:hover {
+    text-decoration: underline;
+}
+
+.sighting-time {
+    font-size: 0.78rem;
+    flex-shrink: 0;
+}
+
+.sighting-species {
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.sighting-note {
+    font-size: 0.85rem;
+    margin: 0;
+    line-height: 1.4;
+}
