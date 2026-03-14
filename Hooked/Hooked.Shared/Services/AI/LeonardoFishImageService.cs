@@ -17,8 +17,12 @@ namespace Hooked.Shared.Services.AI
 
         private readonly string _apiKey;
         private readonly string _referenceImageId;
+        private readonly IGeminiFishSpeciesService _geminiService;
 
-        public LeonardoFishImageService(string? apiKey, string? referenceImageId)
+        public LeonardoFishImageService(
+            string? apiKey,
+            string? referenceImageId,
+            IGeminiFishSpeciesService geminiService)
         {
             if (string.IsNullOrWhiteSpace(apiKey))
             {
@@ -32,6 +36,7 @@ namespace Hooked.Shared.Services.AI
 
             _apiKey = apiKey;
             _referenceImageId = referenceImageId;
+            _geminiService = geminiService ?? throw new ArgumentNullException(nameof(geminiService));
         }
 
         /// <summary>
@@ -50,6 +55,12 @@ namespace Hooked.Shared.Services.AI
             cancellationToken.ThrowIfCancellationRequested();
             await LogAsync(onLog, $"Leonardo start: species='{speciesName}'.").ConfigureAwait(false);
 
+            // 1. Get visual description from Gemini
+            await LogAsync(onLog, "Requesting physical description from Gemini...").ConfigureAwait(false);
+            var fishDescription = await _geminiService.DescribeFishSpeciesAsync(speciesName, cancellationToken).ConfigureAwait(false);
+            await LogAsync(onLog, $"Description received: {fishDescription}").ConfigureAwait(false);
+
+            // 2. Set up Leonardo Client
             using var httpClient = new HttpClient
             {
                 BaseAddress = BaseUri,
@@ -59,9 +70,11 @@ namespace Hooked.Shared.Services.AI
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var generationId = await CreateGenerationAsync(httpClient, speciesName, onLog, cancellationToken).ConfigureAwait(false);
+            // 3. Create Generation
+            var generationId = await CreateGenerationAsync(httpClient, speciesName, fishDescription, onLog, cancellationToken).ConfigureAwait(false);
             await LogAsync(onLog, $"Leonardo generation created: {generationId}").ConfigureAwait(false);
 
+            // 4. Poll for Result
             for (var attempt = 1; attempt <= MaxPollAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -83,6 +96,7 @@ namespace Hooked.Shared.Services.AI
         private async Task<string> CreateGenerationAsync(
             HttpClient httpClient,
             string speciesName,
+            string fishDescription,
             Func<string, Task>? onLog,
             CancellationToken cancellationToken)
         {
@@ -90,19 +104,35 @@ namespace Hooked.Shared.Services.AI
 
             var payload = new Dictionary<string, object?>
             {
-                ["prompt"] = BuildPrompt(speciesName),
+                ["prompt"] = BuildPrompt(speciesName, fishDescription),
                 ["negative_prompt"] = BuildNegativePrompt(),
+                // Explicitly use AlbedoBase XL (an SDXL model perfect for 1024x1024/1024x768 illustrations)
+                ["modelId"] = "2067ae52-33fd-4a82-bb92-c2c55e7d2786",
                 ["num_images"] = 1,
-                ["height"] = 1024,
+
+                // Landscape resolution to prevent the AI from stacking two fish vertically
                 ["width"] = 1024,
-                ["imagePrompts"] = new[] { _referenceImageId },
-                ["imagePromptWeight"] = 0.2,
-                ["presetStyle"] = "NONE",
+                ["height"] = 768,
+
+                // Turn off legacy settings that break SDXL
                 ["promptMagic"] = false,
-                ["enhancePrompt"] = false
+                ["enhancePrompt"] = false,
+
+                // Use the modern ControlNet array for Style Reference
+                ["controlnets"] = new[]
+                {
+                    new
+                    {
+                        initImageId = _referenceImageId,
+                        // IMPORTANT: Change to "GENERATED" if you made the reference image inside Leonardo
+                        initImageType = "UPLOADED",
+                        preprocessorId = 67, // ID 67 is Leonardo's official 'Style Reference' for SDXL
+                        strengthType = "Low" // Options: Low, Mid, High, Ultra, Max. Starts 'Low' so the fish anatomy survives!
+                    }
+                }
             };
 
-            await LogAsync(onLog, "Leonardo settings: presetStyle=NONE, imagePromptWeight=0.2, promptMagic=false.").ConfigureAwait(false);
+            await LogAsync(onLog, "Leonardo settings: AlbedoBase XL, 1024x768 Landscape, ControlNet Style Reference (ID 67), Strength=Low.").ConfigureAwait(false);
 
             var requestJson = JsonSerializer.Serialize(payload);
             using var request = new HttpRequestMessage(HttpMethod.Post, "generations")
@@ -246,14 +276,22 @@ namespace Hooked.Shared.Services.AI
             return value[..maxLength] + "...";
         }
 
-        private static string BuildPrompt(string speciesName)
+        private static string BuildPrompt(string speciesName, string fishDescription)
         {
-            return $"Create a cartoon-style illustration of a single {speciesName} fish. The fish must have the real body shape, fin placement, and natural true-to-species colors of a {speciesName}. Use the provided reference image only for the drawing style and shading style. One fish only, centered, full body visible, side profile, plain light background, no text, no watermark.";
+            return $"A single, solo vector art illustration of EXACTLY ONE {speciesName}. " +
+                   $"The fish MUST be perfectly horizontal and level on the axis, not angled. " +
+                   $"Strict full-body side profile view with the head facing left. " +
+                   $"Anatomical and color traits MUST follow this description exactly: ({fishDescription}:1.3). " +
+                   $"The drawing style should be a very simple, flat 2D cartoon, with solid colors, clean outlines, absolutely no gradients, and minimalistic details, matching the line-art style of the reference image exactly. " +
+                   $"Isolated on a pure, plain white background.";
         }
 
         private static string BuildNegativePrompt()
         {
-            return "rainbow colors, neon colors, fantasy fish, psychedelic colors, abstract gradients, incorrect fish anatomy, deformed body, twisted fish, head-tail swap, misplaced fins, extra fins, multiple fish, fish school, collage, sheet of fish, panel layout, grid, text, watermark";
+            return "duplicate, clone, twin, reflection, mirrored, stacked, multiple fish, two fish, pair, group of fish, school of fish, sticker sheet, collection, collage, split screen, " +
+                   "facing right, angled, diagonal, tilted, swimming up, swimming down, perspective, foreshortening, " +
+                   "realistic, 3d, photograph, text, watermark, logo, deformed fish anatomy, " +
+                   "complicated shading, gradients, shadow, background environment";
         }
     }
 }
