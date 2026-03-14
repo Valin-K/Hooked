@@ -11,7 +11,12 @@ namespace Hooked.Shared.Data
         public string? ConservationStatus { get; set; }
         public bool IsInvasive { get; set; }
         public bool IsEndangered { get; set; }
+        public DateTime DiscoveredAt { get; set; } = DateTime.UtcNow;
+        public Guid? DiscoveredByUserId { get; set; }
+        public string? IllustrationImageUrl { get; set; }
+        public DateTime? IllustrationGeneratedAt { get; set; }
 
+        public User? DiscoveredByUser { get; set; }
         public ICollection<CatchRecord> Catches { get; set; } = new List<CatchRecord>();
         public ICollection<Sighting> Sightings { get; set; } = new List<Sighting>();
         public ICollection<FishDexEntry> FishDexEntries { get; set; } = new List<FishDexEntry>();
