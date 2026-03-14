@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Hooked.Shared.Services;
+using Hooked.Shared.Services.Search;
 
 namespace Hooked.Web.Api
 {
@@ -18,6 +19,24 @@ namespace Hooked.Web.Api
             });
 
             group.MapGet("/catches/recent", async (ICatchService catchService) => Results.Ok(await catchService.GetRecentCatchesAsync())).WithName("GetRecentCatches");
+
+            // Elasticsearch-powered catch search (falls back to 404 when ES is not configured)
+            group.MapGet("/search/catches", async (
+                IElasticSearchService? elasticSearchService,
+                string? q,
+                double? lat,
+                double? lon,
+                double? radiusKm,
+                int? limit,
+                CancellationToken cancellationToken) =>
+            {
+                if (elasticSearchService is null)
+                    return Results.Problem("Elasticsearch is not configured.", statusCode: 503);
+
+                var results = await elasticSearchService.SearchCatchesAsync(
+                    q, lat, lon, radiusKm, limit ?? 25, cancellationToken).ConfigureAwait(false);
+                return Results.Ok(results);
+            }).WithName("SearchCatches");
 
             var social = group.MapGroup("/social");
 
