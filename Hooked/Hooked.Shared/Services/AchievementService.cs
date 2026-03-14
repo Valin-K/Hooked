@@ -118,6 +118,17 @@ namespace Hooked.Shared.Services
                     EarnedAt = now
                 });
 
+                _db.Notifications.Add(new Notification
+                {
+                    UserId = userId,
+                    Type = "achievement",
+                    Title = $"Achievement unlocked: {achievement.Title}",
+                    Body = achievement.Description,
+                    IsRead = false,
+                    CreatedAt = now,
+                    AchievementId = achievement.Id
+                });
+
                 newlyUnlocked.Add(new AchievementUnlockDto(
                     achievement.Id,
                     achievement.Key,
