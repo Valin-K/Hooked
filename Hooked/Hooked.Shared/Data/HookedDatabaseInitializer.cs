@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Hooked.Shared.Services.Search;
 
 namespace Hooked.Shared.Data
@@ -7,11 +8,17 @@ namespace Hooked.Shared.Data
     {
         private readonly HookedDbContext _dbContext;
         private readonly IElasticSearchService? _elastic;
+        private readonly ILogger<HookedDatabaseInitializer> _logger;
 
-        public HookedDatabaseInitializer(HookedDbContext dbContext, IElasticSearchService? elastic = null)
+        public HookedDatabaseInitializer(
+            HookedDbContext dbContext,
+            ILogger<HookedDatabaseInitializer> logger,
+            IElasticSearchService? elastic = null)
         {
             ArgumentNullException.ThrowIfNull(dbContext);
+            ArgumentNullException.ThrowIfNull(logger);
             _dbContext = dbContext;
+            _logger = logger;
             _elastic = elastic;
         }
 
@@ -24,7 +31,20 @@ namespace Hooked.Shared.Data
             var providerName = _dbContext.Database.ProviderName ?? string.Empty;
             if (providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
             {
-                await _dbContext.Database.MigrateAsync(cancellationToken);
+                _logger.LogInformation("Applying EF migrations to PostgreSQL (Supabase)…");
+                try
+                {
+                    await _dbContext.Database.MigrateAsync(cancellationToken);
+                    _logger.LogInformation("Database migrations applied successfully.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogCritical(ex, "Failed to apply database migrations. " +
+                        "Ensure the connection string points to a direct (non-pooler) Supabase connection " +
+                        "or that the pooler supports advisory locks. " +
+                        "You can also run: dotnet ef database update --project Hooked/Hooked.Shared --startup-project Hooked/Hooked.Web");
+                    throw;
+                }
             }
             else
             {
@@ -45,7 +65,7 @@ namespace Hooked.Shared.Data
                 catch (Exception ex)
                 {
                     // Non-fatal — the app still works without Elasticsearch
-                    Console.Error.WriteLine($"[Elasticsearch] Bulk reindex failed: {ex.Message}");
+                    _logger.LogWarning(ex, "[Elasticsearch] Bulk reindex failed.");
                 }
             }
         }

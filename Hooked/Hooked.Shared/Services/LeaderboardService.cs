@@ -10,11 +10,11 @@ namespace Hooked.Shared.Services
 {
     public sealed class LeaderboardService : ILeaderboardService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
 
-        public LeaderboardService(HookedDbContext db)
+        public LeaderboardService(IDbContextFactory<HookedDbContext> dbFactory)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         }
 
         public async Task<IReadOnlyList<LeaderboardRowDto>> GetLeaderboardAsync(
@@ -24,13 +24,14 @@ namespace Hooked.Shared.Services
             int limit = 50,
             CancellationToken cancellationToken = default)
         {
+            await using var db = _dbFactory.CreateDbContext();
             var normalizedLimit = Math.Clamp(limit, 1, 200);
 
-            IQueryable<CatchRecord> query = _db.CatchRecords.AsNoTracking();
+            IQueryable<CatchRecord> query = db.CatchRecords.AsNoTracking();
 
             if (scope == LeaderboardScope.Friends && currentUserId != Guid.Empty)
             {
-                var friendIds = await _db.FriendRelations.AsNoTracking()
+                var friendIds = await db.FriendRelations.AsNoTracking()
                     .Where(f => f.UserId == currentUserId)
                     .Select(f => f.FriendId)
                     .ToListAsync(cancellationToken)

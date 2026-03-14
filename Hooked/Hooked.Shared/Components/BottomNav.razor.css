@@ -12,7 +12,7 @@ nav.bottom-nav {
     );
     margin-inline: auto;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.32rem;
     align-items: center;
     padding: 0.5rem;
@@ -106,4 +106,30 @@ nav.bottom-nav .nav-item.nav-home.active {
         min-height: 3.2rem;
         transform: translateY(-0.24rem);
     }
+}
+
+/* ─── Notification badge ─────────────────────────────── */
+
+nav.bottom-nav .nav-notif-item {
+    position: relative;
+}
+
+nav.bottom-nav .nav-notif-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 14px;
+    height: 14px;
+    background: #ef4444;
+    border-radius: 999px;
+    font-size: 0.56rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    line-height: 1;
+    pointer-events: none;
+    box-shadow: 0 0 0 2px rgba(4, 17, 30, 0.8);
 }

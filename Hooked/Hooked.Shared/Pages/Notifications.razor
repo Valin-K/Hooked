@@ -1,0 +1,187 @@
+@page "/notifications"
+@using Hooked.Shared.Services
+@inject INotificationService NotificationService
+@inject ISocialService SocialService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Notifications · Hooked</PageTitle>
+
+<div class="mobile-shell notif-shell">
+    <header class="notif-header ocean-glass">
+        <button class="ghost-icon" @onclick="GoBack" aria-label="Back">
+            <AppIcon Name="arrow-left" Size="18" />
+        </button>
+        <div>
+            <div class="notif-kicker">Activity</div>
+            <h1>Notifications</h1>
+        </div>
+        @if (_unreadCount > 0)
+        {
+            <button class="mark-all-btn" @onclick="MarkAllReadAsync" disabled="@_markingAll">
+                @(_markingAll ? "Marking…" : "Mark all read")
+            </button>
+        }
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="ocean-glass state-card">
+            <p class="muted">Loading notifications…</p>
+        </section>
+    }
+    else if (_notifications.Count == 0)
+    {
+        <section class="ocean-glass state-card notif-empty">
+            <span class="notif-empty-icon">🔔</span>
+            <div>
+                <div class="notif-empty-title">All caught up!</div>
+                <p class="muted">You'll see reactions, comments, follows, and achievements here.</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        @foreach (var group in _groups)
+        {
+            <div class="notif-group">
+                <div class="notif-group-label">@group.Key</div>
+                @foreach (var n in group)
+                {
+                    <div class="notif-item ocean-glass @(n.IsRead ? "read" : "unread")"
+                         @onclick="() => HandleClickAsync(n)">
+                        <div class="notif-icon-wrap @GetTypeClass(n.Type)">
+                            <AppIcon Name="@GetTypeIcon(n.Type)" Size="16" />
+                        </div>
+                        <div class="notif-body">
+                            <div class="notif-title">@n.Title</div>
+                            @if (!string.IsNullOrWhiteSpace(n.Body))
+                            {
+                                <div class="notif-preview">@n.Body</div>
+                            }
+                            <div class="notif-time">@GetRelativeTime(n.CreatedAt)</div>
+                        </div>
+                        @if (!n.IsRead)
+                        {
+                            <span class="unread-dot" aria-label="Unread"></span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <BottomNav />
+</div>
+
+@code {
+    private Guid _currentUserId;
+    private List<NotificationDto> _notifications = [];
+    private IEnumerable<IGrouping<string, NotificationDto>> _groups = [];
+    private int _unreadCount;
+    private bool _isLoading = true;
+    private bool _markingAll;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = await SocialService.ResolveCurrentUserAsync().ConfigureAwait(false);
+            _currentUserId = user.Id;
+            await LoadAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _notifications = (await NotificationService.GetNotificationsAsync(_currentUserId).ConfigureAwait(false)).ToList();
+        _unreadCount = _notifications.Count(n => !n.IsRead);
+        _groups = _notifications.GroupBy(n => GetGroup(n.CreatedAt));
+        _isLoading = false;
+    }
+
+    private async Task HandleClickAsync(NotificationDto n)
+    {
+        if (!n.IsRead)
+        {
+            await NotificationService.MarkAsReadAsync(n.Id, _currentUserId).ConfigureAwait(false);
+            var idx = _notifications.FindIndex(x => x.Id == n.Id);
+            if (idx >= 0)
+            {
+                _notifications[idx] = n with { IsRead = true };
+                _unreadCount = Math.Max(0, _unreadCount - 1);
+                _groups = _notifications.GroupBy(x => GetGroup(x.CreatedAt));
+            }
+        }
+
+        var destination = n.Type switch
+        {
+            "reaction" or "comment" when n.CatchId.HasValue => $"/fish/{n.CatchId}",
+            "follow" when n.TriggeredByUsername != null     => $"/profile/{n.TriggeredByUsername}",
+            "achievement"                                    => "/profile",
+            _                                                => null
+        };
+
+        if (destination != null)
+        {
+            NavigationManager.NavigateTo(destination);
+        }
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        _markingAll = true;
+        await NotificationService.MarkAllAsReadAsync(_currentUserId).ConfigureAwait(false);
+        _notifications = _notifications.Select(n => n with { IsRead = true }).ToList();
+        _unreadCount = 0;
+        _groups = _notifications.GroupBy(n => GetGroup(n.CreatedAt));
+        _markingAll = false;
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/");
+
+    private static string GetGroup(DateTime utc)
+    {
+        var local = utc.ToLocalTime();
+        var today = DateTime.Today;
+        if (local.Date == today) return "Today";
+        if (local.Date >= today.AddDays(-7)) return "This week";
+        return "Earlier";
+    }
+
+    private static string GetRelativeTime(DateTime utc)
+    {
+        var diff = DateTime.UtcNow - utc;
+        return diff switch
+        {
+            { TotalSeconds: < 60 }  => "just now",
+            { TotalMinutes: < 60 }  => $"{(int)diff.TotalMinutes}m ago",
+            { TotalHours: < 24 }    => $"{(int)diff.TotalHours}h ago",
+            { TotalDays: < 2 }      => "yesterday",
+            { TotalDays: < 7 }      => $"{(int)diff.TotalDays}d ago",
+            _                       => utc.ToLocalTime().ToString("MMM d")
+        };
+    }
+
+    private static string GetTypeIcon(string type) => type switch
+    {
+        "follow"      => "user",
+        "reaction"    => "heart-filled",
+        "comment"     => "feed",
+        "achievement" => "trophy",
+        _             => "bell"
+    };
+
+    private static string GetTypeClass(string type) => type switch
+    {
+        "follow"      => "type-follow",
+        "reaction"    => "type-reaction",
+        "comment"     => "type-comment",
+        "achievement" => "type-achievement",
+        _             => "type-default"
+    };
+}

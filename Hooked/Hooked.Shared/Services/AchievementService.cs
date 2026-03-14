@@ -10,11 +10,11 @@ namespace Hooked.Shared.Services
 {
     public sealed class AchievementService : IAchievementService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
 
-        public AchievementService(HookedDbContext db)
+        public AchievementService(IDbContextFactory<HookedDbContext> dbFactory)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         }
 
         public async Task<IReadOnlyList<AchievementUnlockDto>> CheckAndAwardAsync(
@@ -26,7 +26,8 @@ namespace Hooked.Shared.Services
                 return [];
             }
 
-            var allAchievements = await _db.Achievements
+            await using var db = _dbFactory.CreateDbContext();
+            var allAchievements = await db.Achievements
                 .AsNoTracking()
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -36,7 +37,7 @@ namespace Hooked.Shared.Services
                 return [];
             }
 
-            var alreadyEarned = await _db.UserAchievements
+            var alreadyEarned = await db.UserAchievements
                 .Where(ua => ua.UserId == userId)
                 .Select(ua => ua.AchievementId)
                 .ToHashSetAsync(cancellationToken)
@@ -52,35 +53,35 @@ namespace Hooked.Shared.Services
             }
 
             // Load the stats we need to evaluate rules
-            var catchCount = await _db.CatchRecords
+            var catchCount = await db.CatchRecords
                 .CountAsync(c => c.UserId == userId, cancellationToken)
                 .ConfigureAwait(false);
 
-            var fishDexCount = await _db.FishDexEntries
+            var fishDexCount = await db.FishDexEntries
                 .CountAsync(fd => fd.UserId == userId, cancellationToken)
                 .ConfigureAwait(false);
 
-            var completedSessionCount = await _db.FishingSessions
+            var completedSessionCount = await db.FishingSessions
                 .CountAsync(s => s.UserId == userId && !s.IsActive, cancellationToken)
                 .ConfigureAwait(false);
 
-            var followingCount = await _db.FriendRelations
+            var followingCount = await db.FriendRelations
                 .CountAsync(f => f.UserId == userId, cancellationToken)
                 .ConfigureAwait(false);
 
-            var hasGlobalDiscovery = await _db.FishSpecies
+            var hasGlobalDiscovery = await db.FishSpecies
                 .AnyAsync(s => s.DiscoveredByUserId == userId, cancellationToken)
                 .ConfigureAwait(false);
 
-            var hasBigCatch = await _db.CatchRecords
+            var hasBigCatch = await db.CatchRecords
                 .AnyAsync(c => c.UserId == userId && c.LengthMeters >= 1.0, cancellationToken)
                 .ConfigureAwait(false);
 
-            var hasPersonalBest = await _db.FishDexEntries
+            var hasPersonalBest = await db.FishDexEntries
                 .AnyAsync(fd => fd.UserId == userId && fd.PersonalBestLengthMeters != null, cancellationToken)
                 .ConfigureAwait(false);
 
-            var totalSpeciesCount = await _db.FishSpecies.CountAsync(cancellationToken).ConfigureAwait(false);
+            var totalSpeciesCount = await db.FishSpecies.CountAsync(cancellationToken).ConfigureAwait(false);
             var fishdexComplete = totalSpeciesCount > 0 && fishDexCount >= totalSpeciesCount;
 
             var now = DateTime.UtcNow;
@@ -111,11 +112,22 @@ namespace Hooked.Shared.Services
                     continue;
                 }
 
-                _db.UserAchievements.Add(new UserAchievement
+                db.UserAchievements.Add(new UserAchievement
                 {
                     UserId = userId,
                     AchievementId = achievement.Id,
                     EarnedAt = now
+                });
+
+                db.Notifications.Add(new Notification
+                {
+                    UserId = userId,
+                    Type = "achievement",
+                    Title = $"Achievement unlocked: {achievement.Title}",
+                    Body = achievement.Description,
+                    IsRead = false,
+                    CreatedAt = now,
+                    AchievementId = achievement.Id
                 });
 
                 newlyUnlocked.Add(new AchievementUnlockDto(
@@ -127,7 +139,7 @@ namespace Hooked.Shared.Services
 
             if (newlyUnlocked.Count > 0)
             {
-                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
 
             return newlyUnlocked;
@@ -137,7 +149,8 @@ namespace Hooked.Shared.Services
             Guid userId,
             CancellationToken cancellationToken = default)
         {
-            return await _db.UserAchievements
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.UserAchievements
                 .AsNoTracking()
                 .Where(ua => ua.UserId == userId)
                 .OrderBy(ua => ua.EarnedAt)
@@ -155,13 +168,14 @@ namespace Hooked.Shared.Services
             Guid userId,
             CancellationToken cancellationToken = default)
         {
-            var allAchievements = await _db.Achievements
+            await using var db = _dbFactory.CreateDbContext();
+            var allAchievements = await db.Achievements
                 .AsNoTracking()
                 .OrderBy(a => a.CreatedAt)
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            var earned = await _db.UserAchievements
+            var earned = await db.UserAchievements
                 .AsNoTracking()
                 .Where(ua => ua.UserId == userId)
                 .ToDictionaryAsync(ua => ua.AchievementId, ua => ua.EarnedAt, cancellationToken)
