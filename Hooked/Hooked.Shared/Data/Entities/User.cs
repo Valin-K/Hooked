@@ -17,5 +17,7 @@ namespace Hooked.Shared.Data
         public ICollection<CatchReaction> CatchReactions { get; set; } = new List<CatchReaction>();
         public ICollection<CatchComment> CatchComments { get; set; } = new List<CatchComment>();
         public ICollection<FishDexEntry> FishDexEntries { get; set; } = new List<FishDexEntry>();
+        public ICollection<FishingSession> FishingSessions { get; set; } = new List<FishingSession>();
+        public ICollection<Post> Posts { get; set; } = new List<Post>();
     }
 }

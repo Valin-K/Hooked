@@ -19,6 +19,7 @@ namespace Hooked.Shared.Services
             services.AddScoped<ISocialService, SocialService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
             services.AddScoped<IMapService, MapService>();
+            services.AddScoped<ISessionService, SessionService>();
 
             services.AddSingleton<InsightsCacheService>();
 

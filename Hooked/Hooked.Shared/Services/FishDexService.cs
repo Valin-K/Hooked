@@ -99,6 +99,10 @@ namespace Hooked.Shared.Services
                 }
             }
 
+            var activeSession = await _db.FishingSessions
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive, cancellationToken)
+                .ConfigureAwait(false);
+
             var now = DateTime.UtcNow;
             var catchRecord = new CatchRecord
             {
@@ -108,7 +112,8 @@ namespace Hooked.Shared.Services
                 LengthMeters = request.LengthMeters,
                 WeightKg = request.WeightKg,
                 PhotoPath = request.PhotoPath,
-                LocationJson = request.LocationJson
+                LocationJson = request.LocationJson,
+                FishingSessionId = activeSession?.Id
             };
 
             _db.CatchRecords.Add(catchRecord);

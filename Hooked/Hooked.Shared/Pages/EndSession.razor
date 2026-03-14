@@ -1,0 +1,141 @@
+@page "/session/end/{SessionId:guid}"
+@using Hooked.Shared.Data
+@using Hooked.Shared.Services
+@inject ISessionService SessionService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Session Summary</PageTitle>
+
+<div class="mobile-shell post-shell">
+    <header class="home-top-bar">
+        <h1 class="greeting">Session Ranked</h1>
+    </header>
+
+    @if (isLoading)
+    {
+        <div class="loading-pulse">Finalizing session...</div>
+    }
+    else if (session == null)
+    {
+        <p>Session not found.</p>
+        <button class="primary-btn" @onclick="GoHome">Home</button>
+    }
+    else
+    {
+        <section class="summary-card ocean-glass">
+            <h2>Fishing Trip Complete!</h2>
+            <p>You caught @session.Catches.Count fish over @((session.EndTime ?? DateTime.UtcNow).Subtract(session.StartTime).ToString(@"hh\:mm")).</p>
+        </section>
+
+        <section class="post-form ocean-glass">
+            <h3>Create a Post</h3>
+            <p class="muted">Share your results with the community.</p>
+
+            <div class="input-group">
+                <label>Title</label>
+                <input class="post-input" type="text" @bind="postTitle" placeholder="e.g. Morning River Trip" />
+            </div>
+
+            <div class="input-group">
+                <label>Location (Optional)</label>
+                <input class="post-input" type="text" @bind="locationName" placeholder="e.g. Lake Burley Griffin" />
+            </div>
+
+            <div class="input-group">
+                <label>Summary (Auto-generated)</label>
+                <textarea class="post-textarea" @bind="postBody" rows="4"></textarea>
+            </div>
+
+            <div class="post-actions">
+                <button class="primary-btn" @onclick="PublishPost" disabled="@isPublishing">
+                    @if (isPublishing) { <span>Publishing...</span> }
+                    else { <span>Publish Post</span> }
+                </button>
+                <button class="secondary-btn" @onclick="Skip" disabled="@isPublishing">Skip</button>
+            </div>
+        </section>
+
+        @if (session.Catches.Any())
+        {
+            <section class="caught-species ocean-glass">
+                <h4>Species Caught</h4>
+                <div class="species-icons">
+                    @foreach (var group in session.Catches.Where(c => c.Species != null).GroupBy(c => c.Species!.CommonName))
+                    {
+                        <div class="species-badge">
+                            <AppIcon Name="fish" Size="14" />
+                            <span>@group.Key (@group.Count())</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid SessionId { get; set; }
+
+    private FishingSession? session;
+    private bool isLoading = true;
+    private bool isPublishing = false;
+
+    private string postTitle = "Great Fishing Session";
+    private string postBody = "";
+    private string locationName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            session = await SessionService.EndSessionAsync(SessionId);
+
+            // Auto generate summary locally
+            GenerateSummary();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GenerateSummary()
+    {
+        if (session == null) return;
+
+        var count = session.Catches.Count;
+        if (count == 0)
+        {
+            postBody = "Had a peaceful time by the water, but didn't catch anything today. Better luck next time!";
+            return;
+        }
+
+        var speciesGroups = session.Catches
+            .Where(c => c.Species != null)
+            .GroupBy(c => c.Species!.CommonName)
+            .Select(g => $"{g.Count()} {g.Key}")
+            .ToList();
+
+        var speciesText = speciesGroups.Any() ? string.Join(", ", speciesGroups) : "several fish";
+
+        postBody = $"What an amazing session! I managed to catch {count} fish in total, including {speciesText}. The weather was perfect and the fish were biting.";
+    }
+
+    private async Task PublishPost()
+    {
+        if (session == null) return;
+        isPublishing = true;
+
+        await SessionService.CreatePostFromSessionAsync(session.Id, postTitle, postBody, locationName, null);
+
+        isPublishing = false;
+        NavigationManager.NavigateTo("/feed");
+    }
+
+    private void Skip() => NavigationManager.NavigateTo("/");
+    private void GoHome() => NavigationManager.NavigateTo("/");
+}
