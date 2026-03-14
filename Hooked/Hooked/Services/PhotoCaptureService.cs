@@ -11,6 +11,16 @@ namespace Hooked.Services
         /// <returns>The captured photo when successful; otherwise <see langword="null"/>.</returns>
         public async Task<CapturedPhoto?> CapturePhotoAsync(CancellationToken cancellationToken = default)
         {
+            var cameraStatus = await Permissions.CheckStatusAsync<Permissions.Camera>();
+            if (cameraStatus != PermissionStatus.Granted)
+            {
+                cameraStatus = await Permissions.RequestAsync<Permissions.Camera>();
+                if (cameraStatus != PermissionStatus.Granted)
+                {
+                    throw new InvalidOperationException("Camera permission is required to capture photos.");
+                }
+            }
+
             FileResult? fileResult;
 
             try
