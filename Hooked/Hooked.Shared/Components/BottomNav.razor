@@ -17,6 +17,11 @@
             <AppIcon Name='@GetNavIcon("/map", "map", "compass")' Size="20" />
         </span>
     </a>
+    <a href="/insights" class="@GetNavItemClass("/insights")" title="Insights" aria-label="Insights">
+        <span class="nav-icon" aria-hidden="true">
+            <AppIcon Name='@GetNavIcon("/insights", "chart-line", "chart-bar")' Size="20" />
+        </span>
+    </a>
     <a href="/" class="@($"{GetNavItemClass("/")} nav-home")" title="Home" aria-label="Home">
         <span class="nav-icon" aria-hidden="true">
             <AppIcon Name='@GetNavIcon("/", "home", "home")' Size="22" />
