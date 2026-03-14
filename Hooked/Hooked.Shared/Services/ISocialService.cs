@@ -21,7 +21,6 @@ namespace Hooked.Shared.Services
         Task<SocialCommentDto> AddCommentAsync(Guid catchId, Guid userId, string commentText, CancellationToken cancellationToken = default);
         Task<SocialCommentDto> EditCommentAsync(Guid commentId, Guid requestingUserId, string newText, CancellationToken cancellationToken = default);
         Task DeleteCommentAsync(Guid commentId, Guid requestingUserId, CancellationToken cancellationToken = default);
-        Task<SocialCatchDetailDto?> GetCatchDetailAsync(Guid catchId, Guid viewerUserId, CancellationToken cancellationToken = default);
     }
 
     public sealed record SocialUserLookupDto(Guid Id, string Username, string? DisplayName, DateTime CreatedAt);
@@ -64,25 +63,4 @@ namespace Hooked.Shared.Services
         IReadOnlyList<SocialCommentDto> RecentComments);
 
     public sealed record SocialReactionToggleDto(Guid CatchId, Guid UserId, bool IsReacted, int ReactionCount);
-
-    public sealed record SocialCatchDetailDto(
-        Guid CatchId,
-        Guid UserId,
-        string Username,
-        string? DisplayName,
-        DateTime CaughtAt,
-        int SpeciesId,
-        string SpeciesCommonName,
-        string? SpeciesScientificName,
-        string? SpeciesIllustrationUrl,
-        string? ConservationStatus,
-        bool IsEndangered,
-        bool IsInvasive,
-        double? LengthMeters,
-        double? WeightKg,
-        string? PhotoPath,
-        string? LocationJson,
-        int ReactionCount,
-        bool ViewerHasReacted,
-        IReadOnlyList<SocialCommentDto> Comments);
 }

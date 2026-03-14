@@ -1,6 +1,7 @@
 @page "/fish/{Id:guid}"
 @using Hooked.Shared.Services
 @inject ISocialService SocialService
+@inject ICatchService CatchService
 @inject NavigationManager Navigation
 
 <PageTitle>@(_detail?.SpeciesCommonName ?? "Catch Detail")</PageTitle>
@@ -213,7 +214,7 @@
     [Parameter]
     public Guid Id { get; set; }
 
-    private SocialCatchDetailDto? _detail;
+    private CatchDetailDto? _detail;
     private Guid _currentUserId = Guid.Empty;
     private bool _isLoading = true;
     private bool _reactionBusy;
@@ -232,7 +233,7 @@
         {
             var currentUser = await SocialService.ResolveCurrentUserAsync();
             _currentUserId = currentUser.Id;
-            _detail = await SocialService.GetCatchDetailAsync(Id, _currentUserId);
+            _detail = await CatchService.GetCatchDetailAsync(Id, _currentUserId);
         }
         catch (Exception ex)
         {
