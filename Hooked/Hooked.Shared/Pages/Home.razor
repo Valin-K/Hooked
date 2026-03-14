@@ -4,6 +4,8 @@
 @inject ICatchService CatchService
 @inject IFishService FishService
 @inject IUserService UserService
+@inject ISessionService SessionService
+@inject ISocialService SocialService
 
 <PageTitle>Hooked</PageTitle>
 
@@ -19,22 +21,39 @@
         </button>
     </header>
 
-    <!-- Main CTA: AI Scanner -->
+    <!-- Main CTA: Fishing Session -->
     <section class="main-cta-container">
-        <button class="scanner-btn" @onclick="ScanFish">
-            <div class="scanner-btn-content">
-                <div class="scanner-icon-wrap">
-                    <AppIcon Name="scan" Size="26" />
+        @if (activeSession != null)
+        {
+            <button class="scanner-btn" style="background: linear-gradient(135deg, #00C853, #00A643);" @onclick="GoToActiveSession">
+                <div class="scanner-btn-content">
+                    <div class="scanner-icon-wrap">
+                        <AppIcon Name="alert-triangle" Size="26" />
+                    </div>
+                    <div class="scanner-text">
+                        <span class="scanner-title">Active Session</span>
+                        <span class="scanner-desc">Resume your fishing session!</span>
+                    </div>
                 </div>
-                <div class="scanner-text">
-                    <span class="scanner-title">Identify Custom Catch</span>
-                    <span class="scanner-desc">Scan and log a fish instantly</span>
+            </button>
+        }
+        else
+        {
+            <button class="scanner-btn" @onclick="StartSession">
+                <div class="scanner-btn-content">
+                    <div class="scanner-icon-wrap">
+                        <AppIcon Name="compass" Size="26" />
+                    </div>
+                    <div class="scanner-text">
+                        <span class="scanner-title">Start Fishing Session</span>
+                        <span class="scanner-desc">Track your catches today</span>
+                    </div>
                 </div>
-            </div>
-            <div class="scanner-arrow">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </div>
-        </button>
+                <div class="scanner-arrow">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+            </button>
+        }
     </section>
 
     <!-- Quick Stats Ribbon (Replaces large cards) -->
@@ -163,6 +182,7 @@
 
 @code {
     private List<Hooked.Shared.Data.CatchRecord>? allCatches;
+    private Hooked.Shared.Data.FishingSession? activeSession;
     private string? loadErrorMessage;
     private int recentCatchCount;
     private int todayCatchCount;
@@ -217,6 +237,9 @@
     {
         try
         {
+            var currentUser = await SocialService.ResolveCurrentUserAsync();
+            activeSession = await SessionService.GetActiveSessionAsync(currentUser.Id);
+
             var fetched = await CatchService.GetRecentCatchesAsync(100);
             allCatches = fetched.ToList();
 
@@ -239,6 +262,14 @@
         }
     }
 
+    private async Task StartSession()
+    {
+        var currentUser = await SocialService.ResolveCurrentUserAsync();
+        await SessionService.StartSessionAsync(currentUser.Id);
+        NavigationManager.NavigateTo("/session/active");
+    }
+
+    private void GoToActiveSession() => NavigationManager.NavigateTo("/session/active");
     private void ScanFish() => NavigationManager.NavigateTo("/arscanner");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
     private void GoToInsights() => NavigationManager.NavigateTo("/insights");
