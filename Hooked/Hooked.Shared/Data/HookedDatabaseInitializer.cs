@@ -26,6 +26,7 @@ namespace Hooked.Shared.Data
             }
             else
             {
+                await _dbContext.Database.EnsureDeletedAsync(cancellationToken);
                 await _dbContext.Database.EnsureCreatedAsync(cancellationToken);
             }
 
