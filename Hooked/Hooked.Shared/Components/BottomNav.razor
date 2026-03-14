@@ -2,47 +2,40 @@
 @inject NavigationManager NavigationManager
 
 <nav class="bottom-nav">
-    <a href="/" class="@GetNavItemClass("/")" title="Home">
+    <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed" aria-label="Feed">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/", "home", "home")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/feed", "feed", "feed")' Size="20" />
         </span>
-        <div class="label">Home</div>
     </a>
-    <a href="/feed" class="@GetNavItemClass("/feed")" title="Feed">
+    <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish" aria-label="Scan Fish">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/feed", "feed", "feed")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/arscanner", "scan", "scan")' Size="20" />
         </span>
-        <div class="label">Feed</div>
     </a>
-    <a href="/arscanner" class="@GetNavItemClass("/arscanner")" title="Scan Fish">
+    <a href="/map" class="@GetNavItemClass("/map")" title="Map" aria-label="Map">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/arscanner", "scan", "scan")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/map", "map", "compass")' Size="20" />
         </span>
-        <div class="label">Scan</div>
     </a>
-    <a href="/map" class="@GetNavItemClass("/map")" title="Map">
+    <a href="/" class="@($"{GetNavItemClass("/")} nav-home")" title="Home" aria-label="Home">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/map", "map", "compass")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/", "home", "home")' Size="22" />
         </span>
-        <div class="label">Map</div>
     </a>
-    <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary">
+    <a href="/fishdex" class="@GetNavItemClass("/fishdex")" title="Fish Dictionary" aria-label="FishDex">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/fishdex", "fish", "book-open")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/fishdex", "fish", "book-open")' Size="20" />
         </span>
-        <div class="label">FishDex</div>
     </a>
-    <a href="/leaderboard" class="@GetNavItemClass("/leaderboard")" title="Leaderboard">
+    <a href="/leaderboard" class="@GetNavItemClass("/leaderboard")" title="Leaderboard" aria-label="Leaderboard">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/leaderboard", "trophy", "medal")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/leaderboard", "trophy", "medal")' Size="20" />
         </span>
-        <div class="label">Ranks</div>
     </a>
-    <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile">
+    <a href="/profile" class="@GetNavItemClass("/profile")" title="Profile" aria-label="Profile">
         <span class="nav-icon" aria-hidden="true">
-            <AppIcon Name='@GetNavIcon("/profile", "user", "user-circle")' Size="18" />
+            <AppIcon Name='@GetNavIcon("/profile", "user", "user-circle")' Size="20" />
         </span>
-        <div class="label">Profile</div>
     </a>
 </nav>
 

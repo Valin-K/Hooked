@@ -4,9 +4,31 @@
 
 .layout-main {
     min-height: 100vh;
+    padding: 0 0.65rem;
 }
 
 .layout-content {
     padding: 0;
     min-height: 100vh;
+}
+
+@media (min-width: 761px) {
+    .layout-main {
+        padding-left: 6.2rem;
+        padding-right: 1rem;
+    }
+
+    .layout-shell ::deep .top-nav-right {
+        display: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .layout-main {
+        padding: 0;
+    }
+
+    .layout-content {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
 }
