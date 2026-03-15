@@ -47,16 +47,11 @@ namespace Hooked.Shared.Data
                 }
                 catch (NpgsqlException ex)
                 {
-                    _logger.LogCritical(ex, "Failed to apply database migrations. " +
-                        "Ensure the connection string points to a direct (non-pooler) Supabase connection. " +
-                        "You can also run: dotnet ef database update --project Hooked/Hooked.Shared --startup-project Hooked/Hooked.Web");
-                    throw;
+                    _logger.LogWarning(ex, "Failed to apply database migrations during startup. Continuing without applying migrations for this run.");
                 }
                 catch (TimeoutException ex)
                 {
-                    _logger.LogCritical(ex, "Timed out while applying database migrations. " +
-                        "Verify Supabase connectivity and run migrations manually if needed.");
-                    throw;
+                    _logger.LogWarning(ex, "Timed out while applying database migrations during startup. Continuing without applying migrations for this run.");
                 }
             }
             else
@@ -299,61 +294,21 @@ namespace Hooked.Shared.Data
         private async Task<bool> ApplyPostgresMigrationsAsync(CancellationToken cancellationToken)
         {
             var connectionString = _dbContext.Database.GetConnectionString();
-            if (TryBuildSupabaseDirectConnectionString(connectionString, out var directConnectionString)
-                || IsSupabaseDirectConnection(connectionString, out directConnectionString))
-            {
-                _logger.LogInformation("Running EF migrations using Supabase direct connection host.");
-
-                var options = new DbContextOptionsBuilder<HookedDbContext>()
-                    .UseNpgsql(directConnectionString)
-                    .Options;
-
-                await using var migrationContext = new HookedDbContext(options);
-                await migrationContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-                return true;
-            }
 
             if (IsSupabasePoolerConnection(connectionString))
             {
-                throw new InvalidOperationException(
-                    "Supabase pooler connection was configured for startup migrations. Configure ConnectionStrings:DefaultConnection with direct host (db.<project-ref>.supabase.co) and postgres username.");
+                _logger.LogWarning("Supabase pooler connection detected. Skipping startup migrations for this run.");
+                return false;
+            }
+
+            if (IsSupabaseDirectConnection(connectionString, out _))
+            {
+                _logger.LogInformation("Running EF migrations using Supabase direct connection host.");
+                await _dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+                return true;
             }
 
             await _dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-
-        private static bool TryBuildSupabaseDirectConnectionString(string? connectionString, out string directConnectionString)
-        {
-            directConnectionString = string.Empty;
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                return false;
-            }
-
-            var builder = new NpgsqlConnectionStringBuilder(connectionString);
-            if (string.IsNullOrWhiteSpace(builder.Host) || !builder.Host.Contains(".pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(builder.Username) || !builder.Username.StartsWith("postgres.", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var projectRef = builder.Username["postgres.".Length..];
-            if (string.IsNullOrWhiteSpace(projectRef))
-            {
-                return false;
-            }
-
-            builder.Host = $"db.{projectRef}.supabase.co";
-            builder.Port = 5432;
-            builder.Username = "postgres";
-            builder.Pooling = false;
-
-            directConnectionString = builder.ConnectionString;
             return true;
         }
 
