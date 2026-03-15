@@ -22,12 +22,16 @@ window.hookedMap = (() => {
         return SPECIES_COLOURS[(species ?? '').toLowerCase()] ?? DEFAULT_COLOUR;
     }
 
-    function makePinSvg(bg, border, text, initial) {
+    function makePinSvg(bg, border, text, initial, isFriend) {
+        const friendRing = isFriend
+            ? `<circle cx="16" cy="16" r="15.5" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-dasharray="4 3"/>`
+            : '';
         return `<svg xmlns="http://www.w3.org/2000/svg"
                      width="${PIN_W}" height="${PIN_H}"
                      viewBox="0 0 ${PIN_W} ${PIN_H}"
                      class="hk-pin-svg"
                      style="overflow:visible;display:block;transition:transform 0.15s ease">
+            ${friendRing}
             <circle cx="16" cy="16" r="14"
                     fill="${bg}" stroke="${border}" stroke-width="2"/>
             <polygon points="10,26 22,26 16,${PIN_H}"
@@ -131,6 +135,7 @@ window.hookedMap = (() => {
 
             const colour  = getColour(item.species);
             const initial = (item.species ?? '?')[0].toUpperCase();
+            const isFriend = !!item.isFriend;
 
             if (!legendSpecies.has(item.species)) {
                 legendSpecies.set(item.species, colour.bg);
@@ -140,8 +145,12 @@ window.hookedMap = (() => {
             if (item.length) details.push(`${item.length} m`);
             if (item.weight) details.push(`${item.weight} kg`);
 
+            const friendLabel = isFriend
+                ? `<div class="hk-popup-friend-badge">Following</div>`
+                : '';
+
             const popup = new mapboxgl.Popup({
-                offset: [0, -(PIN_H + 6)],   // popup stem starts just above the pin tip
+                offset: [0, -(PIN_H + 6)],
                 closeButton: true,
                 maxWidth: '240px',
                 anchor: 'bottom'
@@ -151,7 +160,7 @@ window.hookedMap = (() => {
                     <div class="hk-popup-body">
                         <div class="hk-popup-species">${item.species}</div>
                         ${details.length ? `<div class="hk-popup-meta">${details.join(' &bull; ')}</div>` : ''}
-                        <div class="hk-popup-user">@${item.username}</div>
+                        <div class="hk-popup-user">@${item.username}${friendLabel}</div>
                         <div class="hk-popup-time">${item.time}</div>
                     </div>
                 </div>`);
@@ -160,7 +169,7 @@ window.hookedMap = (() => {
             const el = document.createElement('div');
             el.style.cssText = `width:${PIN_W}px;height:${PIN_H}px;cursor:pointer`;
             el.title         = item.species;
-            el.innerHTML     = makePinSvg(colour.bg, colour.border, colour.text, initial);
+            el.innerHTML     = makePinSvg(colour.bg, colour.border, colour.text, initial, isFriend);
 
             // Hover animates the SVG child, never the wrapper � preserves Mapbox's translate
             const svg = el.querySelector('svg');
