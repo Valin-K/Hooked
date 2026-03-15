@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Hooked.Shared.Data
 {
@@ -18,7 +19,7 @@ namespace Hooked.Shared.Data
                 throw new ArgumentException("Database path cannot be null, empty, or whitespace.", nameof(databasePath));
             }
 
-            services.AddDbContextFactory<HookedDbContext>((serviceProvider, options) =>
+            services.AddPooledDbContextFactory<HookedDbContext>((serviceProvider, options) =>
             {
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
                 var useSupabase = configuration.GetValue<bool>("DatabaseConfiguration:UseSupabase");
@@ -31,13 +32,15 @@ namespace Hooked.Shared.Data
                         throw new InvalidOperationException("ConnectionStrings:DefaultConnection must be configured when UseSupabase is true.");
                     }
 
-                    options.UseNpgsql(connectionString);
+                    var optimizedConnectionString = BuildOptimizedSupabaseConnectionString(connectionString);
+                    options.UseNpgsql(optimizedConnectionString, npgsqlOptions =>
+                        npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null));
                 }
                 else
                 {
                     options.UseSqlite($"Data Source={databasePath}");
                 }
-            });
+            }, poolSize: 128);
 
             services.AddScoped<HookedDbContext>(sp =>
                 sp.GetRequiredService<IDbContextFactory<HookedDbContext>>().CreateDbContext());
@@ -45,6 +48,30 @@ namespace Hooked.Shared.Data
             services.AddScoped<IHookedDatabaseInitializer, HookedDatabaseInitializer>();
 
             return services;
+        }
+
+        private static string BuildOptimizedSupabaseConnectionString(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new ArgumentException("Connection string cannot be null, empty, or whitespace.", nameof(connectionString));
+            }
+
+            var builder = new NpgsqlConnectionStringBuilder(connectionString)
+            {
+                Pooling = true,
+                MinPoolSize = 5,
+                MaxPoolSize = 100,
+                Timeout = 15,
+                CommandTimeout = 30
+            };
+
+            if (builder.KeepAlive <= 0)
+            {
+                builder.KeepAlive = 30;
+            }
+
+            return builder.ConnectionString;
         }
 
         /// <summary>
