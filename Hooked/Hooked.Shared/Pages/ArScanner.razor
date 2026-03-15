@@ -83,21 +83,49 @@
 
         @if (_autoMeasureEnabled && !_isCalibrated)
         {
-            <div class="scanner-calibration-prompt">
-                <h3>📏 Calibrate Camera (One-time Setup)</h3>
-                <p>To use sensor-based measurement, calibrate your camera once:</p>
-                <ol class="scanner-calibration-steps">
-                    <li>Find a standard ruler or measuring tape (20cm section)</li>
-                    <li>Hold it at arm's length (~0.5m away) and take a photo</li>
-                    <li>Upload the photo and click "Start Calibration"</li>
-                    <li>The app will calculate your camera's focal length</li>
-                </ol>
-                @if (_selectedPhoto is null)
+            <div class="scanner-calibration-section ocean-glass">
+                <h3>📏 Camera Calibration (One-time Setup)</h3>
+                <p class="scanner-calibration-desc">Calibrate your camera once for accurate sensor-based measurements.</p>
+
+                <div class="scanner-calibration-steps-box">
+                    <strong>Steps:</strong>
+                    <ol class="scanner-calibration-steps">
+                        <li>Find a standard ruler (20cm section visible)</li>
+                        <li>Hold it at arm's length (~0.5m away)</li>
+                        <li>Upload the photo below</li>
+                        <li>Click "Calibrate" to calculate focal length</li>
+                    </ol>
+                </div>
+
+                @if (string.IsNullOrWhiteSpace(_calibrationPhotoPreviewUrl))
                 {
-                    <p class="scanner-calibration-warning">⬆️ Please upload a calibration photo first</p>
+                    <label class="scanner-calibration-upload" for="calibration-photo-input">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 2rem; height: 2rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                        <span>Upload Calibration Photo</span>
+                    </label>
+                    <InputFile id="calibration-photo-input"
+                               style="display: none;"
+                               OnChange="HandleCalibrationPhotoSelectedAsync"
+                               accept="image/*"
+                               disabled="@_isCalibrating" />
                 }
-                <button class="action secondary" type="button" @onclick="StartCalibration" disabled="@(_isCalibrating || _selectedPhoto is null)">
-                    @(_isCalibrating ? "Calibrating..." : "Start Calibration")
+                else
+                {
+                    <div class="scanner-calibration-preview-wrap">
+                        <img src="@_calibrationPhotoPreviewUrl"
+                             alt="Calibration photo preview"
+                             class="scanner-calibration-preview-image" />
+                        <button type="button" class="scanner-clear-btn" @onclick="ClearCalibrationPhoto" disabled="@_isCalibrating">
+                            ✖ Clear
+                        </button>
+                    </div>
+                }
+
+                <button class="action primary scanner-calibrate-btn"
+                        type="button"
+                        @onclick="StartCalibration"
+                        disabled="@(_isCalibrating || _calibrationPhotoBytes is null)">
+                    @(_isCalibrating ? "Calibrating..." : "Calibrate Camera")
                 </button>
             </div>
         }
@@ -262,6 +290,7 @@
 @code {
     private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
 
+    private IBrowserFile? _selectedPhoto;
     private byte[]? _photoBytes;
     private string? _photoMimeType;
     private string? _photoPreviewUrl;
@@ -287,7 +316,8 @@
     private FishBoundingBoxDto? _detectedBoundingBox;
     private string _referenceObjectSizeText = "0.1";
     private string _assumedDistanceText = "0.5";
-    private byte[]? _photoBytes;
+    private byte[]? _calibrationPhotoBytes;
+    private string? _calibrationPhotoPreviewUrl;
 
     private bool _hasActiveSession;
 
@@ -295,17 +325,24 @@
     {
         var currentUser = await SocialService.ResolveCurrentUserAsync();
         var activeSession = await SessionService.GetActiveSessionAsync(currentUser.Id);
+        _isCalibrated = await CalibrationService.IsCalibrated();
         _hasActiveSession = activeSession != null;
     }
 
     private async Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
-        var selectedFile = eventArgs.File;
+        _selectedPhoto = eventArgs.File;
+        var selectedFile = _selectedPhoto;
         if (selectedFile is null)
         {
+            _canScan = false;
             _statusMessage = "No photo selected.";
             return;
         }
+
+        _canScan = true;
+        _errorMessage = null;
+        _detectedBoundingBox = null;
 
         try
         {
@@ -324,7 +361,7 @@
                 ? "image/jpeg"
                 : selectedFile.ContentType;
 
-            SetSelectedPhoto(memoryStream.ToArray(), mimeType, "Photo uploaded. Ready to scan your catch.");
+            await SetSelectedPhoto(memoryStream.ToArray(), mimeType, "Photo uploaded. Ready to scan your catch.");
         }
         catch (IOException)
         {
@@ -367,7 +404,7 @@
                 return;
             }
 
-            SetSelectedPhoto(capturedPhoto.Bytes, capturedPhoto.MimeType, "Photo captured. Ready to scan your catch.");
+            await SetSelectedPhoto(capturedPhoto.Bytes, capturedPhoto.MimeType, "Photo captured. Ready to scan your catch.");
         }
         catch (OperationCanceledException)
         {
@@ -382,7 +419,7 @@
         }
     }
 
-    private void SetSelectedPhoto(byte[] photoBytes, string mimeType, string readyMessage)
+    private async Task SetSelectedPhoto(byte[] photoBytes, string mimeType, string readyMessage)
     {
         _photoBytes = photoBytes;
         _photoMimeType = string.IsNullOrWhiteSpace(mimeType) ? "image/jpeg" : mimeType;
@@ -401,7 +438,7 @@
         _pendingAchievements = [];
         _environmentalImpactMessage = null;
 
-		if (_autoMeasureEnabled && _selectedPhoto is not null)
+        if (_autoMeasureEnabled && _photoBytes is not null)
         {
             await AutoMeasureFishLengthAsync();
         }
@@ -434,16 +471,48 @@
         _assumedDistanceText = eventArgs.Value?.ToString() ?? string.Empty;
     }
 
-    protected override async Task OnInitializedAsync()
+    private async Task HandleCalibrationPhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
-        _isCalibrated = await CalibrationService.IsCalibrated();
+        var selectedFile = eventArgs.File;
+        if (selectedFile is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = selectedFile.OpenReadStream(MaxPhotoSizeBytes);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            if (memoryStream.Length == 0)
+            {
+                _errorMessage = "No photo data was found.";
+                return;
+            }
+
+            _calibrationPhotoBytes = memoryStream.ToArray();
+            _calibrationPhotoPreviewUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(_calibrationPhotoBytes)}";
+            _errorMessage = null;
+        }
+        catch (IOException)
+        {
+            _errorMessage = "Calibration photo must be smaller than 10 MB.";
+        }
+    }
+
+    private void ClearCalibrationPhoto()
+    {
+        _calibrationPhotoBytes = null;
+        _calibrationPhotoPreviewUrl = null;
+        _errorMessage = null;
     }
 
     private async Task StartCalibration()
     {
-        if (_selectedPhoto is null)
+        if (_calibrationPhotoBytes is null || _calibrationPhotoBytes.Length == 0)
         {
-            _errorMessage = "Please upload a calibration photo first (e.g., credit card at arm's length).";
+            _errorMessage = "Please upload a calibration photo first (e.g., ruler at arm's length).";
             return;
         }
 
@@ -452,23 +521,11 @@
 
         try
         {
-            var mimeType = string.IsNullOrWhiteSpace(_selectedPhoto.ContentType)
-                ? "image/jpeg"
-                : _selectedPhoto.ContentType;
+            var mimeType = "image/jpeg";
 
-            await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            _photoBytes = memoryStream.ToArray();
-
-            if (_photoBytes.Length == 0)
-            {
-                _errorMessage = "No photo data was found.";
-                return;
-            }
-
-            // Detect reference object (ruler) in the image
-            _detectedBoundingBox = await GeminiService.DetectFishBoundingBoxAsync(_photoBytes, mimeType);
+            // Detect the reference object (ruler) in the calibration image
+            _detectedBoundingBox = await GeminiService.DetectObjectBoundingBoxAsync(
+                _calibrationPhotoBytes, mimeType, objectHint: "ruler or straight measuring object");
 
             if (_detectedBoundingBox is null)
             {
@@ -504,7 +561,7 @@
 
     private async Task AutoMeasureFishLengthAsync()
     {
-        if (_selectedPhoto is null || _isAutoMeasuring)
+        if (_photoBytes is null || _photoBytes.Length == 0 || _isAutoMeasuring)
         {
             return;
         }
@@ -515,24 +572,9 @@
 
         try
         {
-            var mimeType = string.IsNullOrWhiteSpace(_selectedPhoto.ContentType)
-                ? "image/jpeg"
-                : _selectedPhoto.ContentType;
+            var mimeType = _photoMimeType ?? "image/jpeg";
 
-            await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            _photoBytes = memoryStream.ToArray();
-
-            if (_photoBytes.Length == 0)
-            {
-                _errorMessage = "No photo data was found.";
-                _statusMessage = null;
-                return;
-            }
-
-            // Detect fish bounding box
-            _detectedBoundingBox = await GeminiService.DetectFishBoundingBoxAsync(_photoBytes, mimeType);
+            _detectedBoundingBox = await GeminiService.DetectObjectBoundingBoxAsync(_photoBytes, mimeType);
 
             if (_detectedBoundingBox is null)
             {
@@ -541,37 +583,34 @@
                 return;
             }
 
-            // Calculate fish length from bounding box
             double fishLength;
+            string method;
 
             if (_isCalibrated && _useSensorMode)
             {
-                // Use sensor-based measurement with calibrated focal length
-                if (double.TryParse(_assumedDistanceText, CultureInfo.InvariantCulture, out var distance) && distance > 0)
-                {
-                    fishLength = await MeasurementService.CalculateFishLengthFromCameraAsync(_detectedBoundingBox, distance);
-                    _lengthInputText = fishLength.ToString("F2", CultureInfo.InvariantCulture);
-                    _statusMessage = $"Fish detected! Estimated length: {fishLength:F2}m (sensor-based)";
-                }
-                else
+                if (!double.TryParse(_assumedDistanceText, CultureInfo.InvariantCulture, out var distance) || distance <= 0)
                 {
                     _statusMessage = "Fish detected! Please enter a valid distance estimate.";
+                    return;
                 }
+
+                fishLength = await MeasurementService.CalculateFishLengthFromCameraAsync(_detectedBoundingBox, distance);
+                method = "sensor-based";
             }
             else
             {
-                // Use reference object-based measurement
-                if (double.TryParse(_referenceObjectSizeText, CultureInfo.InvariantCulture, out var referenceSize) && referenceSize > 0)
-                {
-                    fishLength = MeasurementService.CalculateFishLengthFromBoundingBox(_detectedBoundingBox, referenceSize);
-                    _lengthInputText = fishLength.ToString("F2", CultureInfo.InvariantCulture);
-                    _statusMessage = $"Fish detected! Estimated length: {fishLength:F2}m (reference-based)";
-                }
-                else
+                if (!double.TryParse(_referenceObjectSizeText, CultureInfo.InvariantCulture, out var referenceSize) || referenceSize <= 0)
                 {
                     _statusMessage = "Fish detected! Please enter a valid reference object size.";
+                    return;
                 }
+
+                fishLength = MeasurementService.CalculateFishLengthFromBoundingBox(_detectedBoundingBox, referenceSize);
+                method = "reference-based";
             }
+
+            _lengthInputText = fishLength.ToString("F2", CultureInfo.InvariantCulture);
+            _statusMessage = $"Fish detected! Estimated length: {fishLength:F2}m ({method})";
         }
         catch (Exception ex)
         {
@@ -605,31 +644,7 @@
 
         try
         {
-            var mimeType = string.IsNullOrWhiteSpace(_selectedPhoto.ContentType)
-                ? "image/jpeg"
-                : _selectedPhoto.ContentType;
-
-            byte[] photoBytes;
-
-            // Reuse photo bytes if already loaded from auto-measure
-            if (_photoBytes is not null && _photoBytes.Length > 0)
-            {
-                photoBytes = _photoBytes;
-            }
-            else
-            {
-                await using var stream = _selectedPhoto.OpenReadStream(MaxPhotoSizeBytes);
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                photoBytes = memoryStream.ToArray();
-            }
-
-            if (photoBytes.Length == 0)
-            {
-                _errorMessage = "No photo data was found.";
-                _statusMessage = null;
-                return;
-            }
+            var mimeType = _photoMimeType ?? "image/jpeg";
 
             var location = await LocationService.GetCurrentLocationAsync();
             var locationJson = location != null 

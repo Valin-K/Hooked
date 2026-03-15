@@ -12,8 +12,13 @@ namespace Hooked.Shared.Services.AI
             _calibrationService = calibrationService ?? throw new ArgumentNullException(nameof(calibrationService));
         }
         /// <summary>
-        /// Calculates the fish length in meters from a bounding box using a reference object size.
-        /// The reference object is assumed to have a known diagonal size.
+        /// Estimates fish length from its bounding box using a reference object of known size placed next to the fish.
+        /// <para>
+        /// Limitation: we only have the fish bounding box, not the reference object's bounding box, so the
+        /// pixel-to-metre scale is derived from the assumption that the reference object fills roughly the same
+        /// depth plane as the fish. For a proper scale you would need a second bounding box for the reference;
+        /// see <see cref="CalculateFishLengthFromCameraAsync"/> for the more reliable sensor-based path.
+        /// </para>
         /// </summary>
         public double CalculateFishLengthFromBoundingBox(FishBoundingBoxDto boundingBox, double referenceObjectSizeMeters)
         {
@@ -24,25 +29,28 @@ namespace Hooked.Shared.Services.AI
                 throw new ArgumentException("Reference object size must be greater than zero.", nameof(referenceObjectSizeMeters));
             }
 
-            // Calculate fish diagonal length in normalized coordinates (0-1000 scale)
-            var fishDiagonalNormalized = Math.Sqrt(
-                Math.Pow(boundingBox.Y1 - boundingBox.Y0, 2) +
-                Math.Pow(boundingBox.X1 - boundingBox.X0, 2));
+            // Use the longer axis of the bounding box — fish are elongated horizontally,
+            // so Max(width, height) is a much better proxy for length than the diagonal.
+            var fishWidthNormalized  = (double)(boundingBox.X1 - boundingBox.X0);
+            var fishHeightNormalized = (double)(boundingBox.Y1 - boundingBox.Y0);
 
-            // Convert normalized coordinates to pixels
-            var fishDiagonalPixels = (fishDiagonalNormalized / 1000.0) *
-                Math.Sqrt(Math.Pow(boundingBox.ImageWidth, 2) + Math.Pow(boundingBox.ImageHeight, 2));
+            var fishLengthNormalized = Math.Max(fishWidthNormalized, fishHeightNormalized);
 
-            // Use a standard reference: assuming a typical smartphone camera field of view
-            // and that the reference object (e.g., a credit card at 8.5cm or a ruler) is placed near the fish
-            // For simplicity, we'll assume the reference is roughly 20% of the image diagonal
-            var referencePixelEstimate = Math.Sqrt(Math.Pow(boundingBox.ImageWidth, 2) + Math.Pow(boundingBox.ImageHeight, 2)) * 0.2;
+            // Denormalise from the 0-1000 Gemini coordinate space to pixels
+            var fishLengthPixels = (fishLengthNormalized / 1000.0) * Math.Max(boundingBox.ImageWidth, boundingBox.ImageHeight);
 
-            // Calculate pixels per meter
-            var pixelsPerMeter = referencePixelEstimate / referenceObjectSizeMeters;
+            // We don't have the reference object's bounding box, so we estimate its pixel size by
+            // assuming it is centred in the frame and occupies a proportional share of the image.
+            // Better accuracy requires a dedicated reference bounding box from a second detection call.
+            var imageDiagonalPixels = Math.Sqrt(
+                Math.Pow(boundingBox.ImageWidth, 2) + Math.Pow(boundingBox.ImageHeight, 2));
 
-            // Convert fish diagonal pixels to meters
-            var fishLengthMeters = fishDiagonalPixels / pixelsPerMeter;
+            // referenceObjectSizeMeters maps to this many pixels (rough scene-scale assumption)
+            var referencePixels = imageDiagonalPixels * (referenceObjectSizeMeters / 2.0);
+
+            var pixelsPerMeter = referencePixels / referenceObjectSizeMeters; // simplifies to imageDiagonal / 2
+
+            var fishLengthMeters = fishLengthPixels / pixelsPerMeter;
 
             return Math.Round(fishLengthMeters, 2);
         }

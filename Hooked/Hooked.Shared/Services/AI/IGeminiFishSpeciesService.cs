@@ -11,7 +11,17 @@ namespace Hooked.Shared.Services.AI
 
         Task<string> GetEnvironmentalImpactAsync(string speciesName, double? lengthMeters, string? locationJson, CancellationToken cancellationToken = default);
 
-        Task<FishBoundingBoxDto?> DetectFishBoundingBoxAsync(byte[] imageBytes, string mimeType = "image/jpeg", CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Detects the bounding box of a specific object in an image.
+        /// </summary>
+        /// <param name="imageBytes">The image data.</param>
+        /// <param name="mimeType">The MIME type of the image.</param>
+        /// <param name="objectHint">
+        /// A short description of the object to locate, e.g. "fish" or "ruler or straight reference object".
+        /// Defaults to "fish".
+        /// </param>
+        /// <param name="cancellationToken">Optional cancellation token.</param>
+        Task<FishBoundingBoxDto?> DetectObjectBoundingBoxAsync(byte[] imageBytes, string mimeType = "image/jpeg", string objectHint = "fish", CancellationToken cancellationToken = default);
     }
 
     public sealed record FishBoundingBoxDto(

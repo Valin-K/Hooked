@@ -243,7 +243,7 @@ namespace Hooked.Shared.Services.AI
             return result;
         }
 
-        public async Task<FishBoundingBoxDto?> DetectFishBoundingBoxAsync(byte[] imageBytes, string mimeType = "image/jpeg", CancellationToken cancellationToken = default)
+        public async Task<FishBoundingBoxDto?> DetectObjectBoundingBoxAsync(byte[] imageBytes, string mimeType = "image/jpeg", string objectHint = "fish", CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(imageBytes);
 
@@ -273,6 +273,12 @@ namespace Hooked.Shared.Services.AI
                 imageHeight = image.Height;
             }
 
+            var prompt =
+                $"Detect the {objectHint} in this image. " +
+                "Return ONLY a JSON object with integer fields y0, x0, y1, x1 (normalized 0-1000) and a boolean field detected. " +
+                "Example: {\"detected\":true,\"y0\":120,\"x0\":80,\"y1\":650,\"x1\":920} " +
+                $"If no {objectHint} is visible return: {{\"detected\":false,\"y0\":0,\"x0\":0,\"y1\":0,\"x1\":0}}";
+
             GenerateContentResponse response;
 
             try
@@ -285,10 +291,7 @@ namespace Hooked.Shared.Services.AI
                         {
                             Parts = new List<Part>
                             {
-                                new()
-                                {
-                                    Text = "Detect the fish in this image and return ONLY the bounding box coordinates in this exact format: [y0, x0, y1, x1] where coordinates are normalized integers between 0 and 1000. Return ONLY the numbers in brackets, nothing else. If no fish is detected, return: none"
-                                },
+                                new() { Text = prompt },
                                 new()
                                 {
                                     InlineData = new Blob
@@ -318,25 +321,83 @@ namespace Hooked.Shared.Services.AI
                 throw new InvalidOperationException(ModelNotFoundMessage, ex);
             }
 
-            var boxText = response?.Candidates?[0]?.Content?.Parts?[0]?.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(boxText) || boxText.Contains("none", StringComparison.OrdinalIgnoreCase))
+            var rawText = response?.Candidates?[0]?.Content?.Parts?[0]?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(rawText))
             {
                 return null;
             }
 
-            // Parse the bounding box coordinates [y0, x0, y1, x1]
-            var match = Regex.Match(boxText, @"\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\]");
+            return TryParseJsonBoundingBox(rawText, imageWidth, imageHeight)
+                ?? TryParseArrayBoundingBox(rawText, imageWidth, imageHeight); // fallback for unexpected array format
+        }
+
+        /// <summary>
+        /// Primary parser — expects {"detected":true,"y0":N,"x0":N,"y1":N,"x1":N}.
+        /// Strips any markdown code fences Gemini may add around the JSON.
+        /// </summary>
+        private static FishBoundingBoxDto? TryParseJsonBoundingBox(string text, int imageWidth, int imageHeight)
+        {
+            // Strip optional ```json ... ``` fences
+            var jsonText = Regex.Replace(text, @"```(?:json)?|```", "").Trim();
+
+            // Extract the first {...} block in case Gemini adds prose around it
+            var braceMatch = Regex.Match(jsonText, @"\{[^{}]+\}");
+            if (!braceMatch.Success)
+            {
+                return null;
+            }
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(braceMatch.Value);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("detected", out var detectedProp) && !detectedProp.GetBoolean())
+                {
+                    return null;
+                }
+
+                var y0 = root.GetProperty("y0").GetInt32();
+                var x0 = root.GetProperty("x0").GetInt32();
+                var y1 = root.GetProperty("y1").GetInt32();
+                var x1 = root.GetProperty("x1").GetInt32();
+
+                if (y0 == 0 && x0 == 0 && y1 == 0 && x1 == 0)
+                {
+                    return null;
+                }
+
+                return new FishBoundingBoxDto(y0, x0, y1, x1, imageWidth, imageHeight);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Fallback parser — handles the legacy [y0, x0, y1, x1] array format.
+        /// </summary>
+        private static FishBoundingBoxDto? TryParseArrayBoundingBox(string text, int imageWidth, int imageHeight)
+        {
+            if (text.Contains("none", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(text, @"\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\]");
             if (!match.Success)
             {
                 return null;
             }
 
-            var y0 = int.Parse(match.Groups[1].Value);
-            var x0 = int.Parse(match.Groups[2].Value);
-            var y1 = int.Parse(match.Groups[3].Value);
-            var x1 = int.Parse(match.Groups[4].Value);
-
-            return new FishBoundingBoxDto(y0, x0, y1, x1, imageWidth, imageHeight);
+            return new FishBoundingBoxDto(
+                int.Parse(match.Groups[1].Value),
+                int.Parse(match.Groups[2].Value),
+                int.Parse(match.Groups[3].Value),
+                int.Parse(match.Groups[4].Value),
+                imageWidth,
+                imageHeight);
         }
     }
 }
