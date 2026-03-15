@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,7 @@ namespace Hooked.Shared.Services
     public sealed class SocialService : ISocialService
     {
         private readonly IDbContextFactory<HookedDbContext> _dbFactory;
+        private const int FeedPageTokenVersion = 1;
 
         public SocialService(IDbContextFactory<HookedDbContext> dbFactory)
         {
@@ -147,6 +149,148 @@ namespace Hooked.Shared.Services
         {
             await using var db = _dbFactory.CreateDbContext();
             return await GetFeedAsync(c => c.UserId != viewerUserId, viewerUserId, limit, db, cancellationToken);
+        }
+
+        public async Task<SocialCommunityFeedPageDto> GetCommunityFeedPageAsync(Guid viewerUserId, string? continuationToken = null, int limit = 25, CancellationToken cancellationToken = default)
+        {
+            if (viewerUserId == Guid.Empty)
+            {
+                throw new ArgumentException("Viewer user ID is required.", nameof(viewerUserId));
+            }
+
+            var normalizedLimit = Math.Clamp(limit, 1, 100);
+            var token = ParseContinuationToken(continuationToken);
+
+            await using var db = _dbFactory.CreateDbContext();
+            await EnsureUserExistsAsync(viewerUserId, db, cancellationToken).ConfigureAwait(false);
+
+            var followedUserIds = await db.FriendRelations.AsNoTracking()
+                .Where(f => f.UserId == viewerUserId && f.FriendId != viewerUserId)
+                .Select(f => f.FriendId)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            var hasFollowedUsers = followedUserIds.Count > 0;
+
+            var followingItems = new List<FeedItemProjection>(normalizedLimit);
+            var recommendedItems = new List<FeedItemProjection>(normalizedLimit);
+            var hasMore = false;
+            CommunityFeedContinuationToken? nextToken = null;
+
+            if (!token.InRecommendedBucket && hasFollowedUsers)
+            {
+                var followedBatch = await BuildFeedProjectionQuery(
+                        db.CatchRecords.AsNoTracking()
+                            .Where(c => followedUserIds.Contains(c.UserId) && c.UserId != viewerUserId && c.CaughtAt <= token.SnapshotUtc)
+                            .OrderByDescending(c => c.CaughtAt)
+                            .ThenByDescending(c => c.Id),
+                        viewerUserId)
+                    .Skip(token.FollowingOffset)
+                    .Take(normalizedLimit + 1)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                var hasMoreFollowing = followedBatch.Count > normalizedLimit;
+                followingItems.AddRange(followedBatch.Take(normalizedLimit));
+
+                if (hasMoreFollowing)
+                {
+                    hasMore = true;
+                    nextToken = token with
+                    {
+                        FollowingOffset = token.FollowingOffset + followingItems.Count,
+                        InRecommendedBucket = false
+                    };
+                }
+                else
+                {
+                    var recommendedTake = normalizedLimit - followingItems.Count;
+                    var hasMoreRecommended = false;
+                    if (recommendedTake > 0)
+                    {
+                        var followingCatchIds = followingItems.Select(item => item.CatchId).ToList();
+                        var recommendedBatch = await BuildFeedProjectionQuery(
+                                BuildRecommendedFeedBaseQuery(db, followedUserIds, viewerUserId, token.SnapshotUtc)
+                                    .Where(c => !followingCatchIds.Contains(c.Id)),
+                                viewerUserId)
+                            .Skip(token.RecommendedOffset)
+                            .Take(recommendedTake + 1)
+                            .ToListAsync(cancellationToken)
+                            .ConfigureAwait(false);
+
+                        hasMoreRecommended = recommendedBatch.Count > recommendedTake;
+                        recommendedItems.AddRange(recommendedBatch.Take(recommendedTake));
+                    }
+                    else
+                    {
+                        hasMoreRecommended = await BuildRecommendedFeedBaseQuery(db, followedUserIds, viewerUserId, token.SnapshotUtc)
+                            .Skip(token.RecommendedOffset)
+                            .AnyAsync(cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    hasMore = hasMoreRecommended;
+
+                    if (hasMore)
+                    {
+                        nextToken = token with
+                        {
+                            FollowingOffset = token.FollowingOffset + followingItems.Count,
+                            RecommendedOffset = token.RecommendedOffset + recommendedItems.Count,
+                            InRecommendedBucket = true
+                        };
+                    }
+                }
+            }
+            else
+            {
+                var recommendedBatch = await BuildFeedProjectionQuery(
+                        BuildRecommendedFeedBaseQuery(db, followedUserIds, viewerUserId, token.SnapshotUtc),
+                        viewerUserId)
+                    .Skip(token.RecommendedOffset)
+                    .Take(normalizedLimit + 1)
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                hasMore = recommendedBatch.Count > normalizedLimit;
+                recommendedItems.AddRange(recommendedBatch.Take(normalizedLimit));
+
+                if (hasMore)
+                {
+                    nextToken = token with
+                    {
+                        RecommendedOffset = token.RecommendedOffset + recommendedItems.Count,
+                        InRecommendedBucket = true
+                    };
+                }
+            }
+
+            var orderedItems = new List<FeedItemProjection>(followingItems.Count + recommendedItems.Count);
+            var seenCatchIds = new HashSet<Guid>();
+            foreach (var item in followingItems)
+            {
+                if (seenCatchIds.Add(item.CatchId))
+                {
+                    orderedItems.Add(item);
+                }
+            }
+
+            foreach (var item in recommendedItems)
+            {
+                if (seenCatchIds.Add(item.CatchId))
+                {
+                    orderedItems.Add(item);
+                }
+            }
+
+            var feedItems = await MapToFeedItemsAsync(orderedItems, db, cancellationToken).ConfigureAwait(false);
+            var nextContinuationToken = nextToken is null ? null : EncodeContinuationToken(nextToken);
+
+            return new SocialCommunityFeedPageDto(
+                feedItems,
+                nextContinuationToken,
+                hasMore,
+                followingItems.Count,
+                recommendedItems.Count);
         }
 
         public async Task<bool> FollowAsync(Guid userId, Guid targetUserId, CancellationToken cancellationToken = default)
@@ -494,29 +638,121 @@ namespace Hooked.Shared.Services
 
             var normalizedLimit = Math.Clamp(limit, 1, 100);
 
-            var catches = await db.CatchRecords.AsNoTracking()
-                .Where(filter)
-                .OrderByDescending(c => c.CaughtAt)
+            var catches = await BuildFeedProjectionQuery(
+                    db.CatchRecords.AsNoTracking()
+                        .Where(filter)
+                        .OrderByDescending(c => c.CaughtAt)
+                        .ThenByDescending(c => c.Id),
+                    viewerUserId)
                 .Take(normalizedLimit)
-                .Select(c => new FeedItemProjection(
-                    c.Id,
-                    c.UserId,
-                    c.User != null ? c.User.Username : string.Empty,
-                    c.User != null ? c.User.DisplayName : null,
-                    c.CaughtAt,
-                    c.SpeciesId,
-                    c.Species != null ? c.Species.CommonName : string.Empty,
-                    c.LengthMeters,
-                    c.WeightKg,
-                    c.PhotoPath,
-                    c.LocationJson,
-                    c.Reactions.Count(),
-                    c.Comments.Count(),
-                    c.Reactions.Any(r => r.UserId == viewerUserId),
-                    c.UserId == viewerUserId && c.IsFavorite))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
+            return await MapToFeedItemsAsync(catches, db, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static IQueryable<CatchRecord> BuildRecommendedFeedBaseQuery(
+            HookedDbContext db,
+            IReadOnlyCollection<Guid> followedUserIds,
+            Guid viewerUserId,
+            DateTime snapshotUtc)
+        {
+            var query = db.CatchRecords.AsNoTracking()
+                .Where(c => c.UserId != viewerUserId && c.CaughtAt <= snapshotUtc);
+
+            if (followedUserIds.Count > 0)
+            {
+                query = query.Where(c => !followedUserIds.Contains(c.UserId));
+            }
+
+            return query
+                .OrderByDescending(c => c.CaughtAt)
+                .ThenByDescending(c => c.Id);
+        }
+
+        private static IQueryable<FeedItemProjection> BuildFeedProjectionQuery(IQueryable<CatchRecord> query, Guid viewerUserId)
+        {
+            return query.Select(c => new FeedItemProjection(
+                c.Id,
+                c.UserId,
+                c.User != null ? c.User.Username : string.Empty,
+                c.User != null ? c.User.DisplayName : null,
+                c.CaughtAt,
+                c.SpeciesId,
+                c.Species != null ? c.Species.CommonName : string.Empty,
+                c.LengthMeters,
+                c.WeightKg,
+                c.PhotoPath,
+                c.LocationJson,
+                c.Reactions.Count(),
+                c.Comments.Count(),
+                c.Reactions.Any(r => r.UserId == viewerUserId),
+                c.UserId == viewerUserId && c.IsFavorite));
+        }
+
+        private static CommunityFeedContinuationToken ParseContinuationToken(string? continuationToken)
+        {
+            if (string.IsNullOrWhiteSpace(continuationToken))
+            {
+                return new CommunityFeedContinuationToken(FeedPageTokenVersion, DateTime.UtcNow, 0, 0, false);
+            }
+
+            try
+            {
+                var payloadBytes = DecodeBase64Url(continuationToken);
+                var payload = JsonSerializer.Deserialize<CommunityFeedContinuationToken>(payloadBytes);
+
+                if (payload is null ||
+                    payload.Version != FeedPageTokenVersion ||
+                    payload.FollowingOffset < 0 ||
+                    payload.RecommendedOffset < 0)
+                {
+                    throw new ArgumentException("Invalid continuation token.", nameof(continuationToken));
+                }
+
+                return payload;
+            }
+            catch (FormatException ex)
+            {
+                throw new ArgumentException("Invalid continuation token.", nameof(continuationToken), ex);
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException("Invalid continuation token.", nameof(continuationToken), ex);
+            }
+        }
+
+        private static string EncodeContinuationToken(CommunityFeedContinuationToken token)
+        {
+            var payload = JsonSerializer.SerializeToUtf8Bytes(token);
+            return EncodeBase64Url(payload);
+        }
+
+        private static byte[] DecodeBase64Url(string value)
+        {
+            var base64 = value.Replace('-', '+').Replace('_', '/');
+            var padding = base64.Length % 4;
+            if (padding > 0)
+            {
+                base64 = base64.PadRight(base64.Length + (4 - padding), '=');
+            }
+
+            return Convert.FromBase64String(base64);
+        }
+
+        private static string EncodeBase64Url(byte[] value)
+        {
+            return Convert.ToBase64String(value)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+        }
+
+        private static async Task<IReadOnlyList<SocialCatchFeedItemDto>> MapToFeedItemsAsync(
+            IReadOnlyList<FeedItemProjection> catches,
+            HookedDbContext db,
+            CancellationToken cancellationToken)
+        {
             if (catches.Count == 0)
             {
                 return Array.Empty<SocialCatchFeedItemDto>();
@@ -586,6 +822,13 @@ namespace Hooked.Shared.Services
                 throw new KeyNotFoundException($"Catch '{catchId}' was not found.");
             }
         }
+
+        private sealed record CommunityFeedContinuationToken(
+            int Version,
+            DateTime SnapshotUtc,
+            int FollowingOffset,
+            int RecommendedOffset,
+            bool InRecommendedBucket);
 
         private sealed record FeedItemProjection(
             Guid CatchId,

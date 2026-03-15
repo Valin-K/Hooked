@@ -14,16 +14,16 @@ namespace Hooked.Shared.Services
         private const int MaxEventKeyLength = 200;
         private const int MaxReasonLength = 300;
         private const int MaxMetadataLength = 4000;
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
         private readonly ProgressionOptions _options;
         private readonly IXpNotificationService _xpNotificationService;
 
         public ProgressionService(
-            HookedDbContext db,
+            IDbContextFactory<HookedDbContext> dbFactory,
             IOptions<ProgressionOptions> options,
             IXpNotificationService xpNotificationService)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
             _xpNotificationService = xpNotificationService ?? throw new ArgumentNullException(nameof(xpNotificationService));
 
@@ -63,7 +63,9 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Skill ID must be greater than zero.", nameof(skillId));
             }
 
-            return await _db.UserSkills
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+            return await db.UserSkills
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
                     us => us.UserId == userId && us.SkillId == skillId,
@@ -86,9 +88,10 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Skill ID must be greater than zero.", nameof(primarySkillId));
             }
 
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await EnsureUserExistsAsync(db, userId, cancellationToken).ConfigureAwait(false);
 
-            var skill = await _db.Skills
+            var skill = await db.Skills
                 .AsNoTracking()
                 .Where(s => s.Id == primarySkillId && s.IsActive)
                 .Select(s => new { s.Id, s.Key, s.Name })
@@ -99,14 +102,14 @@ namespace Hooked.Shared.Services
                 throw new KeyNotFoundException($"Skill '{primarySkillId}' was not found.");
             }
 
-            var userSkill = await _db.UserSkills
+            var userSkill = await db.UserSkills
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
                     us => us.UserId == userId && us.SkillId == primarySkillId,
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            var overallTotalXp = await _db.UserSkills
+            var overallTotalXp = await db.UserSkills
                 .AsNoTracking()
                 .Where(us => us.UserId == userId)
                 .Select(us => (int?)us.TotalXpEarned)
@@ -134,9 +137,10 @@ namespace Hooked.Shared.Services
         public async Task<ProgressionAwardResult> AwardXpAsync(ProgressionAwardRequest request, CancellationToken cancellationToken = default)
         {
             ValidateRequest(request);
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
             var normalizedEventKey = request.EventKey.Trim();
-            var existingEvent = await _db.XpEvents
+            var existingEvent = await db.XpEvents
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.EventKey == normalizedEventKey, cancellationToken)
                 .ConfigureAwait(false);
@@ -148,12 +152,12 @@ namespace Hooked.Shared.Services
                     throw new InvalidOperationException("This event key has already been used for a different user/skill.");
                 }
 
-                return await BuildDuplicateResultAsync(existingEvent, request.UserId, request.SkillId, cancellationToken).ConfigureAwait(false);
+                return await BuildDuplicateResultAsync(db, existingEvent, request.UserId, request.SkillId, cancellationToken).ConfigureAwait(false);
             }
 
-            await EnsureUserAndSkillExistAsync(request.UserId, request.SkillId, cancellationToken).ConfigureAwait(false);
+            await EnsureUserAndSkillExistAsync(db, request.UserId, request.SkillId, cancellationToken).ConfigureAwait(false);
 
-            var userSkill = await _db.UserSkills
+            var userSkill = await db.UserSkills
                 .FirstOrDefaultAsync(
                     us => us.UserId == request.UserId && us.SkillId == request.SkillId,
                     cancellationToken)
@@ -172,7 +176,7 @@ namespace Hooked.Shared.Services
                     LastUpdatedAt = DateTime.UtcNow
                 };
 
-                _db.UserSkills.Add(userSkill);
+                db.UserSkills.Add(userSkill);
             }
 
             var previousLevel = userSkill.CurrentLevel;
@@ -196,16 +200,16 @@ namespace Hooked.Shared.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _db.XpEvents.Add(xpEvent);
+            db.XpEvents.Add(xpEvent);
 
             try
             {
-                await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (DbUpdateException)
             {
-                _db.ChangeTracker.Clear();
-                var duplicateEvent = await _db.XpEvents
+                db.ChangeTracker.Clear();
+                var duplicateEvent = await db.XpEvents
                     .AsNoTracking()
                     .FirstOrDefaultAsync(e => e.EventKey == normalizedEventKey, cancellationToken)
                     .ConfigureAwait(false);
@@ -215,7 +219,7 @@ namespace Hooked.Shared.Services
                     throw;
                 }
 
-                return await BuildDuplicateResultAsync(duplicateEvent, request.UserId, request.SkillId, cancellationToken).ConfigureAwait(false);
+                return await BuildDuplicateResultAsync(db, duplicateEvent, request.UserId, request.SkillId, cancellationToken).ConfigureAwait(false);
             }
 
             if (request.XpDelta > 0)
@@ -249,11 +253,15 @@ namespace Hooked.Shared.Services
                 xpEvent.Id);
         }
 
-        private async Task EnsureUserAndSkillExistAsync(Guid userId, int skillId, CancellationToken cancellationToken)
+        private async Task EnsureUserAndSkillExistAsync(
+            HookedDbContext db,
+            Guid userId,
+            int skillId,
+            CancellationToken cancellationToken)
         {
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
+            await EnsureUserExistsAsync(db, userId, cancellationToken).ConfigureAwait(false);
 
-            var skillExists = await _db.Skills
+            var skillExists = await db.Skills
                 .AsNoTracking()
                 .AnyAsync(s => s.Id == skillId && s.IsActive, cancellationToken)
                 .ConfigureAwait(false);
@@ -263,9 +271,9 @@ namespace Hooked.Shared.Services
             }
         }
 
-        private async Task EnsureUserExistsAsync(Guid userId, CancellationToken cancellationToken)
+        private async Task EnsureUserExistsAsync(HookedDbContext db, Guid userId, CancellationToken cancellationToken)
         {
-            var userExists = await _db.Users
+            var userExists = await db.Users
                 .AsNoTracking()
                 .AnyAsync(u => u.Id == userId, cancellationToken)
                 .ConfigureAwait(false);
@@ -370,6 +378,7 @@ namespace Hooked.Shared.Services
         }
 
         private async Task<ProgressionAwardResult> BuildDuplicateResultAsync(
+            HookedDbContext db,
             XpEvent duplicateEvent,
             Guid requestUserId,
             int requestSkillId,
@@ -380,7 +389,7 @@ namespace Hooked.Shared.Services
                 throw new InvalidOperationException("This event key has already been used for a different user/skill.");
             }
 
-            var totalXp = await _db.UserSkills
+            var totalXp = await db.UserSkills
                 .AsNoTracking()
                 .Where(us => us.UserId == duplicateEvent.UserId && us.SkillId == duplicateEvent.SkillId)
                 .Select(us => us.TotalXpEarned)
