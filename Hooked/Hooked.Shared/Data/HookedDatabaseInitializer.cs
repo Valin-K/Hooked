@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Hooked.Shared.Services.Search;
+using Npgsql;
 
 namespace Hooked.Shared.Data
 {
@@ -34,15 +35,20 @@ namespace Hooked.Shared.Data
                 _logger.LogInformation("Applying EF migrations to PostgreSQL (Supabase)…");
                 try
                 {
-                    await _dbContext.Database.MigrateAsync(cancellationToken);
+                    await ApplyPostgresMigrationsAsync(cancellationToken).ConfigureAwait(false);
                     _logger.LogInformation("Database migrations applied successfully.");
                 }
-                catch (Exception ex)
+                catch (NpgsqlException ex)
                 {
                     _logger.LogCritical(ex, "Failed to apply database migrations. " +
-                        "Ensure the connection string points to a direct (non-pooler) Supabase connection " +
-                        "or that the pooler supports advisory locks. " +
+                        "Ensure the connection string points to a direct (non-pooler) Supabase connection. " +
                         "You can also run: dotnet ef database update --project Hooked/Hooked.Shared --startup-project Hooked/Hooked.Web");
+                    throw;
+                }
+                catch (TimeoutException ex)
+                {
+                    _logger.LogCritical(ex, "Timed out while applying database migrations. " +
+                        "Verify Supabase connectivity and run migrations manually if needed.");
                     throw;
                 }
             }
@@ -241,6 +247,59 @@ namespace Hooked.Shared.Data
             _dbContext.FishDexEntries.AddRange(fishDexEntries);
 
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        private async Task ApplyPostgresMigrationsAsync(CancellationToken cancellationToken)
+        {
+            var connectionString = _dbContext.Database.GetConnectionString();
+            if (TryBuildSupabaseDirectConnectionString(connectionString, out var directConnectionString))
+            {
+                _logger.LogInformation("Supabase pooler host detected. Running migrations through direct host.");
+
+                var options = new DbContextOptionsBuilder<HookedDbContext>()
+                    .UseNpgsql(directConnectionString)
+                    .Options;
+
+                await using var migrationContext = new HookedDbContext(options);
+                await migrationContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await _dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private static bool TryBuildSupabaseDirectConnectionString(string? connectionString, out string directConnectionString)
+        {
+            directConnectionString = string.Empty;
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return false;
+            }
+
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            if (string.IsNullOrWhiteSpace(builder.Host) || !builder.Host.Contains(".pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(builder.Username) || !builder.Username.StartsWith("postgres.", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var projectRef = builder.Username["postgres.".Length..];
+            if (string.IsNullOrWhiteSpace(projectRef))
+            {
+                return false;
+            }
+
+            builder.Host = $"db.{projectRef}.supabase.co";
+            builder.Port = 5432;
+            builder.Username = "postgres";
+            builder.Pooling = false;
+
+            directConnectionString = builder.ConnectionString;
             return true;
         }
 
