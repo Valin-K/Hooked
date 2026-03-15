@@ -133,7 +133,7 @@
         await SessionService.CreatePostFromSessionAsync(session.Id, postTitle, postBody, locationName, null);
 
         isPublishing = false;
-        NavigationManager.NavigateTo("/feed");
+        NavigationManager.NavigateTo("/");
     }
 
     private void Skip() => NavigationManager.NavigateTo("/");

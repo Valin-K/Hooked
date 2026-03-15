@@ -151,6 +151,19 @@ namespace Hooked.Web.Api
                 return Results.Ok(new FeedResponse(items));
             }).WithName("GetCommunityFeed");
 
+            social.MapGet("/feed/community/page", async (ISocialService socialService, Guid viewerUserId, string? continuationToken, int? limit, CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    var page = await socialService.GetCommunityFeedPageAsync(viewerUserId, continuationToken, limit ?? 25, cancellationToken).ConfigureAwait(false);
+                    return Results.Ok(new CommunityFeedPageResponse(page));
+                }
+                catch (ArgumentException ex)
+                {
+                    return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+            }).WithName("GetCommunityFeedPage");
+
             social.MapPost("/follow", async (ISocialService socialService, FollowRequest request, CancellationToken cancellationToken) =>
             {
                 try
@@ -223,6 +236,7 @@ namespace Hooked.Web.Api
         public sealed record LookupUsersResponse(IReadOnlyList<SocialUserLookupDto> Users);
         public sealed record ProfileSummaryResponse(SocialProfileSummaryDto Profile);
         public sealed record FeedResponse(IReadOnlyList<SocialCatchFeedItemDto> Items);
+        public sealed record CommunityFeedPageResponse(SocialCommunityFeedPageDto Feed);
         public sealed record SetCatchFavoriteRequest(Guid CatchId, Guid UserId, bool IsFavorite);
         public sealed record SetCatchFavoriteResponse(Guid CatchId, bool IsFavorite, bool Changed);
         public sealed record FishingQuestListResponse(IReadOnlyList<FishingQuestProgressDto> Quests);

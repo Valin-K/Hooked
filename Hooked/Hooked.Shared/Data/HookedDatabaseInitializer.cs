@@ -108,7 +108,7 @@ namespace Hooked.Shared.Data
                 new() { Username = "anglermax",    DisplayName = "Angler Max",    Email = "max@hooked.demo",   CreatedAt = now.AddMonths(-4) }
             };
 
-            // NSW-native species
+            // Species mix for demo feed coverage
             var species = new List<FishSpecies>
             {
                 new() { CommonName = "Australian Bass",    ScientificName = "Macquaria novemaculeata", ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
@@ -118,7 +118,15 @@ namespace Hooked.Shared.Data
                 new() { CommonName = "Mulloway",           ScientificName = "Argyrosomus japonicus",   ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
                 new() { CommonName = "Yellowtail Kingfish",ScientificName = "Seriola lalandi",         ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
                 new() { CommonName = "Snapper",            ScientificName = "Chrysophrys auratus",     ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
-                new() { CommonName = "Bream",              ScientificName = "Acanthopagrus brama",     ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false }
+                new() { CommonName = "Bream",              ScientificName = "Acanthopagrus brama",     ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
+                new() { CommonName = "Brown Trout",        ScientificName = "Salmo trutta",            ConservationStatus = "Least Concern",    IsInvasive = true,  IsEndangered = false },
+                new() { CommonName = "Rainbow Trout",      ScientificName = "Oncorhynchus mykiss",     ConservationStatus = "Least Concern",    IsInvasive = true,  IsEndangered = false },
+                new() { CommonName = "Common Carp",        ScientificName = "Cyprinus carpio",         ConservationStatus = "Vulnerable",       IsInvasive = true,  IsEndangered = false },
+                new() { CommonName = "Prussian Carp",      ScientificName = "Carassius gibelio",       ConservationStatus = "Least Concern",    IsInvasive = true,  IsEndangered = false },
+                new() { CommonName = "Sardine",            ScientificName = "Sardinops sagax",         ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
+                new() { CommonName = "Sailfish",           ScientificName = "Istiophorus platypterus", ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
+                new() { CommonName = "Giant Trevally",     ScientificName = "Caranx ignobilis",        ConservationStatus = "Least Concern",    IsInvasive = false, IsEndangered = false },
+                new() { CommonName = "Sheepshead",         ScientificName = "Archosargus probatocephalus", ConservationStatus = "Least Concern", IsInvasive = false, IsEndangered = false }
             };
 
             _dbContext.Users.AddRange(users);
@@ -151,7 +159,23 @@ namespace Hooked.Shared.Data
                 // Tuggerah Lake (lake centre) � Bream
                 new() { UserId = users[0].Id, SpeciesId = species[7].Id, CaughtAt = now.AddDays(-6),   LengthMeters = 0.29, WeightKg = 0.7,  PhotoPath = "/seed/catches/bream-2.jpg",    LocationJson = "{\"lat\":-33.3233,\"lng\":151.5117}" },
                 // Clarence River mouth (Yamba) � Murray Cod
-                new() { UserId = users[1].Id, SpeciesId = species[1].Id, CaughtAt = now.AddDays(-7),   LengthMeters = 0.78, WeightKg = 6.1,  PhotoPath = "/seed/catches/cod-2.jpg",      LocationJson = "{\"lat\":-29.4367,\"lng\":153.3617}" }
+                new() { UserId = users[1].Id, SpeciesId = species[1].Id, CaughtAt = now.AddDays(-7),   LengthMeters = 0.78, WeightKg = 6.1,  PhotoPath = "/seed/catches/cod-2.jpg",      LocationJson = "{\"lat\":-29.4367,\"lng\":153.3617}" },
+                // Thredbo River � Brown Trout
+                new() { UserId = users[2].Id, SpeciesId = species[8].Id, CaughtAt = now.AddHours(-30), LengthMeters = 0.47, WeightKg = 1.7, IsFavorite = true,  LocationJson = "{\"lat\":-36.5000,\"lng\":148.3000}" },
+                // Lake Eucumbene � Rainbow Trout
+                new() { UserId = users[3].Id, SpeciesId = species[9].Id, CaughtAt = now.AddHours(-34), LengthMeters = 0.52, WeightKg = 2.1, LocationJson = "{\"lat\":-36.1167,\"lng\":148.6667}" },
+                // Murray River near Echuca � Common Carp
+                new() { UserId = users[4].Id, SpeciesId = species[10].Id, CaughtAt = now.AddDays(-8),  LengthMeters = 0.66, WeightKg = 4.9, IsFavorite = true,  LocationJson = "{\"lat\":-36.1333,\"lng\":144.7500}" },
+                // Lachlan River � Prussian Carp
+                new() { UserId = users[0].Id, SpeciesId = species[11].Id, CaughtAt = now.AddDays(-9),  LengthMeters = 0.31, WeightKg = 0.8, LocationJson = "{\"lat\":-33.7833,\"lng\":148.1667}" },
+                // Offshore Eden � Sardine
+                new() { UserId = users[1].Id, SpeciesId = species[12].Id, CaughtAt = now.AddDays(-10), LengthMeters = 0.21, WeightKg = 0.2, LocationJson = "{\"lat\":-37.0667,\"lng\":149.9000}" },
+                // Coral Sea offshore � Sailfish
+                new() { UserId = users[4].Id, SpeciesId = species[13].Id, CaughtAt = now.AddDays(-11), LengthMeters = 2.34, WeightKg = 44.2, IsFavorite = true,  LocationJson = "{\"lat\":-16.2000,\"lng\":146.1000}" },
+                // Ningaloo Reef edge � Giant Trevally
+                new() { UserId = users[3].Id, SpeciesId = species[14].Id, CaughtAt = now.AddDays(-12), LengthMeters = 1.08, WeightKg = 24.5, IsFavorite = true,  LocationJson = "{\"lat\":-22.1000,\"lng\":113.9000}" },
+                // Gulf Coast jetty � Sheepshead
+                new() { UserId = users[2].Id, SpeciesId = species[15].Id, CaughtAt = now.AddDays(-13), LengthMeters = 0.44, WeightKg = 1.6, LocationJson = "{\"lat\":29.8000,\"lng\":-93.9000}" }
             };
 
             var followRelations = new List<FriendRelation>
@@ -177,7 +201,15 @@ namespace Hooked.Shared.Data
                 new() { CatchId = catches[6].Id,  UserId = users[2].Id, ReactedAt = now.AddHours(-10) },
                 new() { CatchId = catches[7].Id,  UserId = users[0].Id, ReactedAt = now.AddHours(-18) },
                 new() { CatchId = catches[8].Id,  UserId = users[4].Id, ReactedAt = now.AddHours(-22) },
-                new() { CatchId = catches[11].Id, UserId = users[0].Id, ReactedAt = now.AddDays(-6) }
+                new() { CatchId = catches[11].Id, UserId = users[0].Id, ReactedAt = now.AddDays(-6) },
+                new() { CatchId = catches[12].Id, UserId = users[1].Id, ReactedAt = now.AddDays(-1) },
+                new() { CatchId = catches[13].Id, UserId = users[2].Id, ReactedAt = now.AddDays(-1) },
+                new() { CatchId = catches[14].Id, UserId = users[3].Id, ReactedAt = now.AddDays(-2) },
+                new() { CatchId = catches[15].Id, UserId = users[4].Id, ReactedAt = now.AddDays(-2) },
+                new() { CatchId = catches[16].Id, UserId = users[0].Id, ReactedAt = now.AddDays(-3) },
+                new() { CatchId = catches[17].Id, UserId = users[1].Id, ReactedAt = now.AddDays(-3) },
+                new() { CatchId = catches[18].Id, UserId = users[2].Id, ReactedAt = now.AddDays(-4) },
+                new() { CatchId = catches[19].Id, UserId = users[3].Id, ReactedAt = now.AddDays(-4) }
             };
 
             var comments = new List<CatchComment>
@@ -190,7 +222,15 @@ namespace Hooked.Shared.Data
                 new() { CatchId = catches[6].Id,  UserId = users[1].Id, CommentText = "Offshore Sydney tuna is absolutely firing.",  CommentedAt = now.AddHours(-10) },
                 new() { CatchId = catches[7].Id,  UserId = users[3].Id, CommentText = "Port Stephens kingies are nuts right now.",   CommentedAt = now.AddHours(-18) },
                 new() { CatchId = catches[8].Id,  UserId = users[2].Id, CommentText = "Beautiful snapper from Broken Bay.",          CommentedAt = now.AddDays(-4) },
-                new() { CatchId = catches[11].Id, UserId = users[4].Id, CommentText = "Clarence River cod are massive this year.",   CommentedAt = now.AddDays(-7) }
+                new() { CatchId = catches[11].Id, UserId = users[4].Id, CommentText = "Clarence River cod are massive this year.",   CommentedAt = now.AddDays(-7) },
+                new() { CatchId = catches[12].Id, UserId = users[4].Id, CommentText = "Great trout colours — clean release too.",     CommentedAt = now.AddDays(-1) },
+                new() { CatchId = catches[13].Id, UserId = users[0].Id, CommentText = "Snowy Mountains rainbow trout are looking healthy.", CommentedAt = now.AddDays(-1) },
+                new() { CatchId = catches[14].Id, UserId = users[1].Id, CommentText = "That carp is a tank. Nice control on the net.", CommentedAt = now.AddDays(-2) },
+                new() { CatchId = catches[15].Id, UserId = users[2].Id, CommentText = "Prussian carp in the Lachlan again — great report.", CommentedAt = now.AddDays(-2) },
+                new() { CatchId = catches[16].Id, UserId = users[3].Id, CommentText = "Sardine schools are thick offshore right now.", CommentedAt = now.AddDays(-3) },
+                new() { CatchId = catches[17].Id, UserId = users[2].Id, CommentText = "That sailfish run must have been wild!",       CommentedAt = now.AddDays(-3) },
+                new() { CatchId = catches[18].Id, UserId = users[4].Id, CommentText = "Giant trevally hit like a truck. Epic catch.", CommentedAt = now.AddDays(-4) },
+                new() { CatchId = catches[19].Id, UserId = users[1].Id, CommentText = "Sheepshead patterns are so distinctive.",      CommentedAt = now.AddDays(-4) }
             };
 
             _dbContext.CatchRecords.AddRange(catches);
