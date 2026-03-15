@@ -39,6 +39,13 @@
     background: radial-gradient(circle at 35% 30%, var(--brand-mark-start), var(--brand-mark-end));
 }
 
+.brand-mark-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    object-fit: contain;
+    display: block;
+}
+
 .title {
     font-size: 1.1rem;
     font-weight: 700;
