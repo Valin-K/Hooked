@@ -166,6 +166,75 @@
     font-size: 0.85em;
 }
 
+/* Filter bar above map */
+.map-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border-radius: 18px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid rgba(151, 234, 255, 0.22);
+    margin-bottom: 0.75rem;
+}
+
+.map-filter-tabs {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.map-filter-tab {
+    flex: 1;
+    padding: 0.42rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border: 1px solid rgba(151, 234, 255, 0.2);
+    background: transparent;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.map-filter-tab.active {
+    background: linear-gradient(135deg, rgba(169, 247, 255, 0.18), rgba(56, 189, 248, 0.14));
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.map-filter-tab:not(.active):hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-strong);
+}
+
+.map-species-select {
+    width: 100%;
+    padding: 0.42rem 0.7rem;
+    border-radius: 12px;
+    border: 1px solid rgba(151, 234, 255, 0.22);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-strong);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2369d8ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    padding-right: 2rem;
+}
+
+.map-species-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.map-species-select option {
+    background: #0d1f2d;
+    color: var(--text-strong);
+}
+
 @media (max-width: 780px) {
     .map-shell {
         padding-bottom: 7.75rem;

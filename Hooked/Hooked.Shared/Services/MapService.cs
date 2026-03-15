@@ -45,9 +45,95 @@ namespace Hooked.Shared.Services
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            var pins = new List<MapCatchPinDto>(catches.Count);
+            return BuildPins(catches.Select(c => (c.Id, c.LocationJson, c.LengthMeters, c.WeightKg, c.PhotoPath, c.CaughtAt, c.SpeciesName, c.Username, c.DisplayName, IsFriend: false)));
+        }
 
-            foreach (var c in catches)
+        public async Task<IReadOnlyList<MapCatchPinDto>> GetFriendCatchPinsAsync(
+            Guid viewerUserId,
+            CancellationToken cancellationToken = default)
+        {
+            await using var db = _dbFactory.CreateDbContext();
+
+            var friendIds = await db.FriendRelations.AsNoTracking()
+                .Where(f => f.UserId == viewerUserId)
+                .Select(f => f.FriendId)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            var catches = await db.CatchRecords.AsNoTracking()
+                .Where(c => c.LocationJson != null && friendIds.Contains(c.UserId))
+                .OrderByDescending(c => c.CaughtAt)
+                .Take(10)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.LocationJson,
+                    c.LengthMeters,
+                    c.WeightKg,
+                    c.PhotoPath,
+                    c.CaughtAt,
+                    SpeciesName = c.Species != null ? c.Species.CommonName : string.Empty,
+                    Username = c.User != null ? c.User.Username : string.Empty,
+                    DisplayName = c.User != null ? c.User.DisplayName : null
+                })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            return BuildPins(catches.Select(c => (c.Id, c.LocationJson, c.LengthMeters, c.WeightKg, c.PhotoPath, c.CaughtAt, c.SpeciesName, c.Username, c.DisplayName, IsFriend: true)));
+        }
+
+        public async Task<IReadOnlyList<MapCatchPinDto>> GetCatchPinsBySpeciesAsync(
+            string speciesName,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(speciesName))
+            {
+                return Array.Empty<MapCatchPinDto>();
+            }
+
+            await using var db = _dbFactory.CreateDbContext();
+            var normalizedName = speciesName.Trim();
+
+            var catches = await db.CatchRecords.AsNoTracking()
+                .Where(c => c.LocationJson != null && c.Species != null && c.Species.CommonName == normalizedName)
+                .OrderByDescending(c => c.CaughtAt)
+                .Take(200)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.LocationJson,
+                    c.LengthMeters,
+                    c.WeightKg,
+                    c.PhotoPath,
+                    c.CaughtAt,
+                    SpeciesName = c.Species != null ? c.Species.CommonName : string.Empty,
+                    Username = c.User != null ? c.User.Username : string.Empty,
+                    DisplayName = c.User != null ? c.User.DisplayName : null
+                })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            return BuildPins(catches.Select(c => (c.Id, c.LocationJson, c.LengthMeters, c.WeightKg, c.PhotoPath, c.CaughtAt, c.SpeciesName, c.Username, c.DisplayName, IsFriend: false)));
+        }
+
+        public async Task<IReadOnlyList<string>> GetSpeciesWithCatchesAsync(
+            CancellationToken cancellationToken = default)
+        {
+            await using var db = _dbFactory.CreateDbContext();
+            return await db.CatchRecords.AsNoTracking()
+                .Where(c => c.LocationJson != null && c.Species != null)
+                .Select(c => c.Species!.CommonName)
+                .Distinct()
+                .OrderBy(name => name)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private static IReadOnlyList<MapCatchPinDto> BuildPins(
+            IEnumerable<(Guid Id, string? LocationJson, double? LengthMeters, double? WeightKg, string? PhotoPath, DateTime CaughtAt, string SpeciesName, string Username, string? DisplayName, bool IsFriend)> source)
+        {
+            var pins = new List<MapCatchPinDto>();
+            foreach (var c in source)
             {
                 if (!TryParseLocation(c.LocationJson, out var lat, out var lng))
                     continue;
@@ -62,7 +148,8 @@ namespace Hooked.Shared.Services
                     c.LengthMeters,
                     c.WeightKg,
                     !string.IsNullOrWhiteSpace(c.PhotoPath),
-                    c.CaughtAt));
+                    c.CaughtAt,
+                    c.IsFriend));
             }
 
             return pins;
@@ -101,7 +188,7 @@ namespace Hooked.Shared.Services
             }
             catch
             {
-                // unparseable location � skip
+                // unparseable location — skip
             }
 
             return false;

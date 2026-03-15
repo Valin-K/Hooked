@@ -293,6 +293,24 @@ h1:focus {
     font-size: 0.74rem;
     color: #69d8ff;
     margin-top: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.hk-popup-friend-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.14rem 0.42rem;
+    border-radius: 999px;
+    background: rgba(74, 222, 128, 0.18);
+    color: #86efac;
+    box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.28);
 }
 
 .hk-popup-time {
