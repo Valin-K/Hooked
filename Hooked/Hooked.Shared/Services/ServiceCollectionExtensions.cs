@@ -5,6 +5,7 @@ using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Supabase;
 
 namespace Hooked.Shared.Services
 {
@@ -48,6 +49,21 @@ namespace Hooked.Shared.Services
 
             services.AddSingleton<ICameraCalibrationService, CameraCalibrationService>();
             services.AddSingleton<IReferenceMeasurementService, ReferenceMeasurementService>();
+
+            var supabaseUrl = configuration["Supabase:Url"];
+            var supabaseAnonKey = configuration["Supabase:AnonKey"];
+            if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseAnonKey))
+            {
+                services.AddSingleton(_ =>
+                    new Client(
+                        supabaseUrl,
+                        supabaseAnonKey,
+                        new SupabaseOptions
+                        {
+                            AutoConnectRealtime = false,
+                            AutoRefreshToken = true
+                        }));
+            }
 
             // Elasticsearch — optional: skipped when URL or API key is not configured
             var elasticUrl = configuration["Elasticsearch:Url"];

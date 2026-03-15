@@ -31,7 +31,8 @@ namespace Hooked.Shared.Data
                         throw new InvalidOperationException("ConnectionStrings:DefaultConnection must be configured when UseSupabase is true.");
                     }
 
-                    options.UseNpgsql(connectionString);
+                    options.UseNpgsql(connectionString, npgsqlOptions =>
+                        npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null));
                 }
                 else
                 {

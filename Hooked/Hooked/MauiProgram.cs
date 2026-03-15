@@ -39,7 +39,7 @@ namespace Hooked
 #endif
 
             var app = builder.Build();
-            app.Services.InitializeHookedDatabaseAsync().GetAwaiter().GetResult();
+            Task.Run(() => app.Services.InitializeHookedDatabaseAsync()).GetAwaiter().GetResult();
 
             return app;
         }
