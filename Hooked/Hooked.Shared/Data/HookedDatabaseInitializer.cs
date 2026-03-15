@@ -35,8 +35,15 @@ namespace Hooked.Shared.Data
                 _logger.LogInformation("Applying EF migrations to PostgreSQL (Supabase)…");
                 try
                 {
-                    await ApplyPostgresMigrationsAsync(cancellationToken).ConfigureAwait(false);
-                    _logger.LogInformation("Database migrations applied successfully.");
+                    var applied = await ApplyPostgresMigrationsAsync(cancellationToken).ConfigureAwait(false);
+                    if (applied)
+                    {
+                        _logger.LogInformation("Database migrations applied successfully.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Database migrations skipped for this run because only Supabase pooler connectivity is available.");
+                    }
                 }
                 catch (NpgsqlException ex)
                 {
@@ -54,7 +61,6 @@ namespace Hooked.Shared.Data
             }
             else
             {
-                await _dbContext.Database.EnsureDeletedAsync(cancellationToken);
                 await _dbContext.Database.EnsureCreatedAsync(cancellationToken);
             }
 
@@ -290,12 +296,13 @@ namespace Hooked.Shared.Data
             return true;
         }
 
-        private async Task ApplyPostgresMigrationsAsync(CancellationToken cancellationToken)
+        private async Task<bool> ApplyPostgresMigrationsAsync(CancellationToken cancellationToken)
         {
             var connectionString = _dbContext.Database.GetConnectionString();
-            if (TryBuildSupabaseDirectConnectionString(connectionString, out var directConnectionString))
+            if (TryBuildSupabaseDirectConnectionString(connectionString, out var directConnectionString)
+                || IsSupabaseDirectConnection(connectionString, out directConnectionString))
             {
-                _logger.LogInformation("Supabase pooler host detected. Running migrations through direct host.");
+                _logger.LogInformation("Running EF migrations using Supabase direct connection host.");
 
                 var options = new DbContextOptionsBuilder<HookedDbContext>()
                     .UseNpgsql(directConnectionString)
@@ -303,10 +310,17 @@ namespace Hooked.Shared.Data
 
                 await using var migrationContext = new HookedDbContext(options);
                 await migrationContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-                return;
+                return true;
+            }
+
+            if (IsSupabasePoolerConnection(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "Supabase pooler connection was configured for startup migrations. Configure ConnectionStrings:DefaultConnection with direct host (db.<project-ref>.supabase.co) and postgres username.");
             }
 
             await _dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+            return true;
         }
 
         private static bool TryBuildSupabaseDirectConnectionString(string? connectionString, out string directConnectionString)
@@ -338,6 +352,38 @@ namespace Hooked.Shared.Data
             builder.Port = 5432;
             builder.Username = "postgres";
             builder.Pooling = false;
+
+            directConnectionString = builder.ConnectionString;
+            return true;
+        }
+
+        private static bool IsSupabasePoolerConnection(string? connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return false;
+            }
+
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            return !string.IsNullOrWhiteSpace(builder.Host)
+                   && builder.Host.Contains(".pooler.supabase.com", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSupabaseDirectConnection(string? connectionString, out string directConnectionString)
+        {
+            directConnectionString = string.Empty;
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return false;
+            }
+
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            if (string.IsNullOrWhiteSpace(builder.Host)
+                || !builder.Host.StartsWith("db.", StringComparison.OrdinalIgnoreCase)
+                || !builder.Host.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
 
             directConnectionString = builder.ConnectionString;
             return true;
