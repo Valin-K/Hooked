@@ -9,11 +9,16 @@
 
 <div class="mobile-shell">
     <header class="home-top-bar">
-        <div class="greeting-area">
-            <h1 class="greeting">Ready to cast? 🎣</h1>
-            <p class="greeting-sub">Your stream starts with anglers you follow.</p>
+        <div class="home-brand-greeting">
+            <a href="/" class="home-brand-icon-link" aria-label="Hooked home">
+                <img class="home-brand-icon" src="_content/Hooked.Shared/favicon-io(1)/favicon-32x32.png" alt="" />
+            </a>
+            <div class="greeting-area">
+                <h1 class="greeting">Ready to cast? 🎣</h1>
+                <p class="greeting-sub">Your stream starts with anglers you follow.</p>
+            </div>
         </div>
-        <button class="user-avatar ghost-icon" @onclick="GoToInsights" aria-label="Profile">
+        <button class="user-avatar ghost-icon" @onclick="GoToProfile" aria-label="Profile">
             <AppIcon Name="user" Size="20" />
         </button>
     </header>
@@ -24,7 +29,7 @@
             <button class="scanner-btn" style="background: linear-gradient(135deg, #00C853, #00A643);" @onclick="GoToActiveSession">
                 <div class="scanner-btn-content">
                     <div class="scanner-icon-wrap">
-                        <AppIcon Name="alert-triangle" Size="26" />
+                        <AppIcon Name="alert-triangle" Size="24" />
                     </div>
                     <div class="scanner-text">
                         <span class="scanner-title">Active Session</span>
@@ -38,7 +43,7 @@
             <button class="scanner-btn" @onclick="StartSession">
                 <div class="scanner-btn-content">
                     <div class="scanner-icon-wrap">
-                        <AppIcon Name="compass" Size="26" />
+                        <AppIcon Name="compass" Size="24" />
                     </div>
                     <div class="scanner-text">
                         <span class="scanner-title">Start Fishing Session</span>
@@ -67,25 +72,24 @@
             <span class="ms-value">@longestCatchText</span>
             <span class="ms-label">Record</span>
         </div>
-    </section>
-
-    <section class="xp-week-card ocean-glass">
-        <div class="xp-week-heading">XP this week</div>
-        <div class="xp-week-value">@($"{weeklyXp:N0} XP")</div>
-        <div class="xp-week-subheading">Last 7 days</div>
+        <div class="stat-divider"></div>
+        <div class="mini-stat">
+            <span class="ms-value">@weeklyXp.ToString("N0")</span>
+            <span class="ms-label">XP this week</span>
+        </div>
     </section>
 
     <section class="quick-links-grid compact-quick-links">
         <article class="quick-link-card ocean-glass" @onclick="GoToFishDex">
-            <AppIcon Name="book-open" Size="22" />
+            <AppIcon Name="book-open" Size="20" />
             <div class="link-label">FishDex</div>
         </article>
         <article class="quick-link-card ocean-glass" @onclick="GoToInsights">
-            <AppIcon Name="chart-bar" Size="22" />
+            <AppIcon Name="chart-bar" Size="20" />
             <div class="link-label">Insights</div>
         </article>
         <article class="quick-link-card ocean-glass" @onclick="GoToLeaderboard">
-            <AppIcon Name="medal" Size="22" />
+            <AppIcon Name="medal" Size="20" />
             <div class="link-label">Ranks</div>
         </article>
     </section>
@@ -131,7 +135,7 @@
         {
             <Virtualize @ref="_timelineVirtualize"
                         ItemsProvider="ProvideTimelineItemsAsync"
-                        ItemSize="300"
+                        ItemSize="360"
                         OverscanCount="3">
                 <ItemContent Context="entry">
                     @if (entry.Post is { } post)
@@ -244,7 +248,8 @@
 
 @code {
     private const int FeedPageSize = 10;
-    private const string PostImageAssetBasePath = "_content/Hooked.Shared/post-images";
+    private const string PostImageAssetDirectory = "post-images";
+    private const string SharedStaticAssetPrefix = "_content/Hooked.Shared";
     private const string DefaultFallbackImageFileName = "na.jpg";
     private static readonly string[] PostImageCatalogFileNames =
     [
@@ -514,6 +519,7 @@
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
     private void GoToInsights() => NavigationManager.NavigateTo("/insights");
     private void GoToLeaderboard() => NavigationManager.NavigateTo("/leaderboard");
+    private void GoToProfile() => NavigationManager.NavigateTo("/profile");
 
     private string GetProfileRoute(string username)
     {
@@ -651,7 +657,7 @@
                 continue;
             }
 
-            var imageUrl = $"{PostImageAssetBasePath}/{Uri.EscapeDataString(fileName)}";
+            var imageUrl = BuildPostImageUrl(fileName);
             var stem = Path.GetFileNameWithoutExtension(fileName);
             _placeholderImageUrls.Add(imageUrl);
             _placeholderImageUrlSet.Add(imageUrl);
@@ -669,7 +675,7 @@
 
         if (_placeholderImageUrls.Count == 0)
         {
-            var defaultImageUrl = $"{PostImageAssetBasePath}/{Uri.EscapeDataString(DefaultFallbackImageFileName)}";
+            var defaultImageUrl = BuildPostImageUrl(DefaultFallbackImageFileName);
             _placeholderImageUrls.Add(defaultImageUrl);
             _placeholderImageUrlSet.Add(defaultImageUrl);
         }
@@ -691,6 +697,13 @@
         var bytes = catchId.ToByteArray();
         var hash = BitConverter.ToUInt32(bytes, 0);
         return (int)(hash % (uint)fallbackCount);
+    }
+
+    private string BuildPostImageUrl(string fileName)
+    {
+        var escapedFileName = Uri.EscapeDataString(fileName);
+        var relativePath = $"{SharedStaticAssetPrefix}/{PostImageAssetDirectory}/{escapedFileName}";
+        return NavigationManager.ToAbsoluteUri(relativePath).PathAndQuery;
     }
 
     private static HomeFeedPostItem MapFeedItem(SocialCatchFeedItemDto dto, bool isRecommended)

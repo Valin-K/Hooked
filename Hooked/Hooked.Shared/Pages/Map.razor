@@ -2,6 +2,7 @@
 @using Hooked.Shared.Services
 @using Microsoft.JSInterop
 @inject IMapService MapService
+@inject ISocialService SocialService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -12,6 +13,32 @@
     @if (!string.IsNullOrWhiteSpace(MapService.MapboxAccessToken) &&
          !MapService.MapboxAccessToken.StartsWith("YOUR_"))
     {
+        <div class="map-filter-bar ocean-glass">
+            <div class="map-filter-tabs">
+                <button class="map-filter-tab @(_activeFilter == MapFilter.Friends ? "active" : "")"
+                        type="button"
+                        @onclick="() => SwitchFilterAsync(MapFilter.Friends)">
+                    Friends
+                </button>
+                <button class="map-filter-tab @(_activeFilter == MapFilter.Species ? "active" : "")"
+                        type="button"
+                        @onclick="() => SwitchFilterAsync(MapFilter.Species)">
+                    By Species
+                </button>
+            </div>
+
+            @if (_activeFilter == MapFilter.Species)
+            {
+                <select class="map-species-select" @onchange="OnSpeciesSelectedAsync">
+                    <option value="">All species…</option>
+                    @foreach (var s in _availableSpecies)
+                    {
+                        <option value="@s" selected="@(s == _selectedSpecies)">@s</option>
+                    }
+                </select>
+            }
+        </div>
+
         <div class="map-wrap">
             <div id="hooked-map" class="map-canvas"></div>
 
@@ -35,10 +62,32 @@
         </div>
 
         <div class="map-catch-list">
-            <div class="map-list-title">Pinned catches</div>
+            <div class="map-list-title">
+                @if (_activeFilter == MapFilter.Friends)
+                {
+                    <span>Recent friend catches</span>
+                }
+                else if (!string.IsNullOrEmpty(_selectedSpecies))
+                {
+                    <span>@_selectedSpecies catches</span>
+                }
+                else
+                {
+                    <span>Pinned catches</span>
+                }
+            </div>
             @if (_pins.Count == 0 && !_isLoading)
             {
-                <div class="map-list-empty muted">No catches with location data yet.</div>
+                <div class="map-list-empty muted">
+                    @if (_activeFilter == MapFilter.Friends)
+                    {
+                        <span>No recent catches from friends with location data.</span>
+                    }
+                    else
+                    {
+                        <span>No catches with location data yet.</span>
+                    }
+                </div>
             }
             else
             {
@@ -84,10 +133,16 @@
 @code {
     private const string MapContainerId = "hooked-map";
 
+    private enum MapFilter { Friends, Species }
+
     private List<MapCatchPinDto> _pins = [];
+    private List<string> _availableSpecies = [];
     private bool _isLoading = true;
     private string? _loadError;
     private bool _mapInitialized;
+    private MapFilter _activeFilter = MapFilter.Friends;
+    private string? _selectedSpecies;
+    private SocialUserLookupDto? _currentUser;
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,7 +155,15 @@
 
         try
         {
-            _pins = (await MapService.GetCatchPinsAsync()).ToList();
+            _currentUser = await SocialService.ResolveCurrentUserAsync();
+
+            var pinsTask = MapService.GetFriendCatchPinsAsync(_currentUser.Id);
+            var speciesTask = MapService.GetSpeciesWithCatchesAsync();
+
+            await Task.WhenAll(pinsTask, speciesTask);
+
+            _pins = (await pinsTask).ToList();
+            _availableSpecies = (await speciesTask).ToList();
         }
         catch (Exception ex)
         {
@@ -120,7 +183,6 @@
 
         _mapInitialized = true;
 
-        // Compute a sensible default centre from the pins, or fall back to world view
         var (centerLng, centerLat, zoom) = GetDefaultView(_pins);
 
         try
@@ -146,6 +208,64 @@
         }
     }
 
+    private async Task SwitchFilterAsync(MapFilter filter)
+    {
+        if (_activeFilter == filter && filter != MapFilter.Species)
+            return;
+
+        _activeFilter = filter;
+
+        if (filter == MapFilter.Friends)
+        {
+            _selectedSpecies = null;
+            await LoadPinsAsync();
+        }
+        // Species tab shows the dropdown — actual load triggered by OnSpeciesSelectedAsync
+    }
+
+    private async Task OnSpeciesSelectedAsync(ChangeEventArgs e)
+    {
+        _selectedSpecies = e.Value?.ToString();
+        await LoadPinsAsync();
+    }
+
+    private async Task LoadPinsAsync()
+    {
+        _isLoading = true;
+        _loadError = null;
+        StateHasChanged();
+
+        try
+        {
+            _pins = _activeFilter switch
+            {
+                MapFilter.Friends when _currentUser is not null =>
+                    (await MapService.GetFriendCatchPinsAsync(_currentUser.Id)).ToList(),
+                MapFilter.Species when !string.IsNullOrWhiteSpace(_selectedSpecies) =>
+                    (await MapService.GetCatchPinsBySpeciesAsync(_selectedSpecies)).ToList(),
+                _ => []
+            };
+
+            if (_mapInitialized)
+            {
+                var (centerLng, centerLat, zoom) = GetDefaultView(_pins);
+                if (_pins.Count > 0)
+                {
+                    await JS.InvokeVoidAsync("hookedMap.flyTo", MapContainerId, centerLng, centerLat, zoom);
+                }
+                await PushMarkersAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _loadError = $"Could not load catches: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
     private async Task FlyToPin(MapCatchPinDto pin)
     {
         if (!_mapInitialized) return;
@@ -163,7 +283,8 @@
             length = p.LengthMeters.HasValue ? $"{p.LengthMeters.Value:F2}" : (string?)null,
             weight = p.WeightKg.HasValue ? $"{p.WeightKg.Value:F2}" : (string?)null,
             hasPhoto = p.HasPhoto,
-            time = p.CaughtAt.ToLocalTime().ToString("MMM d, yyyy")
+            time = p.CaughtAt.ToLocalTime().ToString("MMM d, yyyy"),
+            isFriend = p.IsFriend
         }).ToArray();
 
         await JS.InvokeVoidAsync("hookedMap.addMarkers", MapContainerId, markerData);

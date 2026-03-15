@@ -25,6 +25,13 @@
     background: radial-gradient(circle at 35% 30%, var(--brand-mark-start), var(--brand-mark-end));
 }
 
+.side-nav-brand-icon {
+    width: 1.9rem;
+    height: 1.9rem;
+    display: block;
+    object-fit: contain;
+}
+
 .side-nav-links {
     display: flex;
     flex-direction: column;
