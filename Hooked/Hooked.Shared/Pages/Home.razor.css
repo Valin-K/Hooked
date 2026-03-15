@@ -182,6 +182,7 @@
     border: 1px solid rgba(151, 234, 255, 0.22);
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 0.14rem;
 }
 
@@ -191,17 +192,20 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-soft);
+    text-align: center;
 }
 
 .xp-week-value {
     font-size: 1.22rem;
     font-weight: 800;
     color: var(--text-strong);
+    text-align: center;
 }
 
 .xp-week-subheading {
     font-size: 0.7rem;
     color: var(--text-soft);
+    text-align: center;
 }
 
 .section-header-compact {
@@ -480,7 +484,7 @@
 .stream-need-to-know-card {
     margin-bottom: 1rem;
     width: 100%;
-    max-width: 22rem;
+    max-width: 26.5rem;
     margin-inline: auto;
     aspect-ratio: 5 / 3;
     min-height: 8.9rem;
@@ -705,6 +709,7 @@
     }
 
     .stream-need-to-know-card {
+        max-width: 16.9rem;
         aspect-ratio: 5 / 3;
         min-height: 8rem;
         max-height: 9.8rem;
