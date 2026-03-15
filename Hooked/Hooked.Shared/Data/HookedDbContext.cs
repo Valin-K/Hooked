@@ -167,7 +167,7 @@ namespace Hooked.Shared.Data
                 b.HasIndex(s => s.CommonName);
                 b.Property(s => s.ScientificName).HasMaxLength(200);
                 b.Property(s => s.CommonName).HasMaxLength(200);
-                b.Property(s => s.IllustrationImageUrl).HasMaxLength(1024);
+                b.Property(s => s.IllustrationImageUrl).HasColumnType("text");
                 b.HasOne(s => s.DiscoveredByUser)
                     .WithMany()
                     .HasForeignKey(s => s.DiscoveredByUserId)
