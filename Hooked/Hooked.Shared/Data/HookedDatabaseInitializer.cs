@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Hooked.Shared.Services.Search;
 using Npgsql;
-using System.Net.Sockets;
 
 namespace Hooked.Shared.Data
 {
@@ -48,16 +47,11 @@ namespace Hooked.Shared.Data
                 }
                 catch (NpgsqlException ex)
                 {
-                    _logger.LogCritical(ex, "Failed to apply database migrations. " +
-                        "Ensure the connection string points to a direct (non-pooler) Supabase connection. " +
-                        "You can also run: dotnet ef database update --project Hooked/Hooked.Shared --startup-project Hooked/Hooked.Web");
-                    throw;
+                    _logger.LogWarning(ex, "Failed to apply database migrations during startup. Continuing without applying migrations for this run.");
                 }
                 catch (TimeoutException ex)
                 {
-                    _logger.LogCritical(ex, "Timed out while applying database migrations. " +
-                        "Verify Supabase connectivity and run migrations manually if needed.");
-                    throw;
+                    _logger.LogWarning(ex, "Timed out while applying database migrations during startup. Continuing without applying migrations for this run.");
                 }
             }
             else
@@ -300,117 +294,22 @@ namespace Hooked.Shared.Data
         private async Task<bool> ApplyPostgresMigrationsAsync(CancellationToken cancellationToken)
         {
             var connectionString = _dbContext.Database.GetConnectionString();
-            if (TryBuildSupabaseDirectConnectionString(connectionString, out var directConnectionString)
-                || IsSupabaseDirectConnection(connectionString, out directConnectionString))
-            {
-                _logger.LogInformation("Running EF migrations using Supabase direct connection host.");
-
-                await RunMigrationsWithRetryAsync(directConnectionString, cancellationToken).ConfigureAwait(false);
-                return true;
-            }
 
             if (IsSupabasePoolerConnection(connectionString))
             {
-                throw new InvalidOperationException(
-                    "Supabase pooler connection was configured for startup migrations. Configure ConnectionStrings:DefaultConnection with direct host (db.<project-ref>.supabase.co) and postgres username.");
+                _logger.LogWarning("Supabase pooler connection detected. Skipping startup migrations for this run.");
+                return false;
+            }
+
+            if (IsSupabaseDirectConnection(connectionString, out _))
+            {
+                _logger.LogInformation("Running EF migrations using Supabase direct connection host.");
+                await _dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+                return true;
             }
 
             await _dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
             return true;
-        }
-
-        private async Task RunMigrationsWithRetryAsync(string connectionString, CancellationToken cancellationToken)
-        {
-            const int maxAttempts = 4;
-
-            for (var attempt = 1; attempt <= maxAttempts; attempt++)
-            {
-                try
-                {
-                    var options = new DbContextOptionsBuilder<HookedDbContext>()
-                        .UseNpgsql(connectionString)
-                        .Options;
-
-                    await using var migrationContext = new HookedDbContext(options);
-                    await migrationContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                catch (NpgsqlException ex) when (IsTransientDnsResolutionFailure(ex) && attempt < maxAttempts)
-                {
-                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt - 1));
-                    _logger.LogWarning(ex,
-                        "Transient DNS resolution failure while connecting to Supabase direct host for migrations (attempt {Attempt}/{MaxAttempts}). Retrying in {DelaySeconds}s.",
-                        attempt,
-                        maxAttempts,
-                        delay.TotalSeconds);
-
-                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-                }
-            }
-        }
-
-        private static bool TryBuildSupabaseDirectConnectionString(string? connectionString, out string directConnectionString)
-        {
-            directConnectionString = string.Empty;
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                return false;
-            }
-
-            var builder = new NpgsqlConnectionStringBuilder(connectionString);
-            if (string.IsNullOrWhiteSpace(builder.Host) || !builder.Host.Contains(".pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(builder.Username) || !builder.Username.StartsWith("postgres.", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var projectRef = builder.Username["postgres.".Length..];
-            if (string.IsNullOrWhiteSpace(projectRef))
-            {
-                return false;
-            }
-
-            builder.Host = $"db.{projectRef}.supabase.co";
-            builder.Port = 5432;
-            builder.Username = "postgres";
-            builder.Pooling = false;
-
-            directConnectionString = builder.ConnectionString;
-            return true;
-        }
-
-        private static bool IsTransientDnsResolutionFailure(NpgsqlException ex)
-        {
-            var socketEx = FindSocketException(ex);
-            if (socketEx is not null)
-            {
-                return socketEx.SocketErrorCode is SocketError.NoData
-                    or SocketError.HostNotFound
-                    or SocketError.TryAgain;
-            }
-
-            return ex.Message.Contains("requested name is valid", StringComparison.OrdinalIgnoreCase)
-                && ex.Message.Contains("requested type", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static SocketException? FindSocketException(Exception ex)
-        {
-            Exception? current = ex;
-            while (current is not null)
-            {
-                if (current is SocketException socketException)
-                {
-                    return socketException;
-                }
-
-                current = current.InnerException;
-            }
-
-            return null;
         }
 
         private static bool IsSupabasePoolerConnection(string? connectionString)
