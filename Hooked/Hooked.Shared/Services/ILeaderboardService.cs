@@ -8,7 +8,8 @@ namespace Hooked.Shared.Services
     public enum LeaderboardMetric
     {
         MostCaught,
-        LargestFish
+        LargestFish,
+        TotalXp
     }
 
     public enum LeaderboardScope
@@ -24,6 +25,10 @@ namespace Hooked.Shared.Services
             LeaderboardScope scope,
             Guid currentUserId,
             int limit = 50,
+            CancellationToken cancellationToken = default);
+
+        Task<int> GetUserWeeklyXpAsync(
+            Guid userId,
             CancellationToken cancellationToken = default);
     }
 

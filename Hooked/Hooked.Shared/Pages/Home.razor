@@ -1,43 +1,57 @@
-﻿@page "/"
-@using Hooked.Shared.Data
+@page "/"
 @using Hooked.Shared.Services
 @inject ICatchService CatchService
-@inject IFishService FishService
-@inject IUserService UserService
+@inject ISessionService SessionService
+@inject ISocialService SocialService
+@inject ILeaderboardService LeaderboardService
 
 <PageTitle>Hooked</PageTitle>
 
 <div class="mobile-shell">
-    <!-- Sleek Top Header -->
     <header class="home-top-bar">
         <div class="greeting-area">
             <h1 class="greeting">Ready to cast? 🎣</h1>
-            <p class="greeting-sub">Let's see what you catch today.</p>
+            <p class="greeting-sub">Your stream starts with anglers you follow.</p>
         </div>
         <button class="user-avatar ghost-icon" @onclick="GoToInsights" aria-label="Profile">
             <AppIcon Name="user" Size="20" />
         </button>
     </header>
 
-    <!-- Main CTA: AI Scanner -->
     <section class="main-cta-container">
-        <button class="scanner-btn" @onclick="ScanFish">
-            <div class="scanner-btn-content">
-                <div class="scanner-icon-wrap">
-                    <AppIcon Name="scan" Size="26" />
+        @if (activeSession != null)
+        {
+            <button class="scanner-btn" style="background: linear-gradient(135deg, #00C853, #00A643);" @onclick="GoToActiveSession">
+                <div class="scanner-btn-content">
+                    <div class="scanner-icon-wrap">
+                        <AppIcon Name="alert-triangle" Size="26" />
+                    </div>
+                    <div class="scanner-text">
+                        <span class="scanner-title">Active Session</span>
+                        <span class="scanner-desc">Resume your fishing session!</span>
+                    </div>
                 </div>
-                <div class="scanner-text">
-                    <span class="scanner-title">Identify Custom Catch</span>
-                    <span class="scanner-desc">Scan and log a fish instantly</span>
+            </button>
+        }
+        else
+        {
+            <button class="scanner-btn" @onclick="StartSession">
+                <div class="scanner-btn-content">
+                    <div class="scanner-icon-wrap">
+                        <AppIcon Name="compass" Size="26" />
+                    </div>
+                    <div class="scanner-text">
+                        <span class="scanner-title">Start Fishing Session</span>
+                        <span class="scanner-desc">Track your catches today</span>
+                    </div>
                 </div>
-            </div>
-            <div class="scanner-arrow">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </div>
-        </button>
+                <div class="scanner-arrow" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                </div>
+            </button>
+        }
     </section>
 
-    <!-- Quick Stats Ribbon (Replaces large cards) -->
     <section class="stats-ribbon ocean-glass">
         <div class="mini-stat">
             <span class="ms-value">@recentCatchCount</span>
@@ -55,8 +69,13 @@
         </div>
     </section>
 
-    <!-- Quick Links -->
-    <section class="quick-links-grid">
+    <section class="xp-week-card ocean-glass">
+        <div class="xp-week-heading">XP this week</div>
+        <div class="xp-week-value">@($"{weeklyXp:N0} XP")</div>
+        <div class="xp-week-subheading">Last 7 days</div>
+    </section>
+
+    <section class="quick-links-grid compact-quick-links">
         <article class="quick-link-card ocean-glass" @onclick="GoToFishDex">
             <AppIcon Name="book-open" Size="22" />
             <div class="link-label">FishDex</div>
@@ -71,185 +90,666 @@
         </article>
     </section>
 
-    <!-- Recent catches -->
-    <section class="recent">
-        <div class="section-header-compact">
-            <h3 class="home-section-title">
-                <AppIcon Name="feed" Size="16" /> Recent Catches
-            </h3>
-        </div>
-        @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
-        {
+    @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
+    {
+        <section class="ocean-glass state-card compact-state">
             <p class="muted">@loadErrorMessage</p>
-        }
-        else if (allCatches is null)
-        {
-            <div class="loading-pulse">Loading...</div>
-        }
-        else if (!allCatches.Any())
-        {
-            <div class="empty-state">
-                <AppIcon Name="fish" Size="32" />
-                <p>No catches yet. Tap the scanner to begin!</p>
+        </section>
+    }
+
+    <section class="home-feed">
+        <div class="section-header-compact">
+            <div>
+                <h3 class="home-section-title">
+                    <AppIcon Name="feed" Size="16" /> Community Stream
+                </h3>
+                <p class="feed-subtitle">Following posts appear first, then recommended catches.</p>
             </div>
+        </div>
+
+        @if (!_initialFeedLoadCompleted && _timelineEntries.Count == 0 && string.IsNullOrWhiteSpace(_feedLoadError))
+        {
+            <article class="ocean-glass state-card compact-state">
+                <p class="muted">Loading catches…</p>
+            </article>
+        }
+        else if (!string.IsNullOrWhiteSpace(_feedLoadError) && _timelineEntries.Count == 0)
+        {
+            <article class="ocean-glass state-card compact-state">
+                <p class="muted">@_feedLoadError</p>
+                <button class="action secondary" type="button" @onclick="RetryFeedAsync">Retry</button>
+            </article>
+        }
+        else if (_initialFeedLoadCompleted && _feedPosts.Count == 0)
+        {
+            <article class="ocean-glass empty-state">
+                <AppIcon Name="fish" Size="32" />
+                <p>No community catches yet. Follow anglers to tailor your stream.</p>
+            </article>
         }
         else
         {
-            <div class="recent-list-compact">
-                @foreach (var c in visibleCatches)
-                {
-                    <article class="catch-card-compact" @onclick="() => OpenCatch(c.Id)">
-                        <div class="catch-photo-compact">
-                            <AppIcon Name='@((c.PhotoPath is null) ? "fish" : "image")' Size="18" />
-                        </div>
-                        <div class="catch-meta">
-                            <div class="species">@c.Species?.CommonName</div>
-                            <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("MMM dd")</div>
-                        </div>
-                        <div class="catch-arrow">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                        </div>
-                    </article>
-                }
-            </div>
-
-            @if (catchesShowCount < allCatches.Count)
-            {
-                <button class="list-more-btn" type="button" @onclick="ShowMoreCatches">
-                    Show more
-                </button>
-            }
-        }
-    </section>
-
-    <!-- Conservation news -->
-    <section class="home-news">
-        <div class="section-header-compact">
-            <h3 class="home-section-title">
-                <AppIcon Name="compass" Size="16" /> Need to Know
-            </h3>
-        </div>
-
-        <div class="news-carousel">
-            @foreach (var item in visibleNewsItems)
-            {
-                <article class="modern-news-card news-type-@item.Tag">
-                    <div class="news-top-bar">
-                        <span class="news-badge tag-@item.Tag">
-                            @if (item.Tag == "endangered") { <AppIcon Name="heart" Size="12" /> }
-                            else if (item.Tag == "invasive") { <AppIcon Name="alert-triangle" Size="12" /> }
-                            else if (item.Tag == "regulation") { <AppIcon Name="book-open" Size="12" /> }
-                            else if (item.Tag == "conservation") { <AppIcon Name="compass" Size="12" /> }
-                            @item.TagLabel
-                        </span>
-                    </div>
-                    <h4 class="news-headline">@item.Headline</h4>
-                    <p class="news-body-clamp">@item.Body</p>
-                    @if (item.ActionHref is not null)
+            <Virtualize @ref="_timelineVirtualize"
+                        ItemsProvider="ProvideTimelineItemsAsync"
+                        ItemSize="300"
+                        OverscanCount="3">
+                <ItemContent Context="entry">
+                    @if (entry.Post is { } post)
                     {
-                        <div class="news-footer">
-                            <a class="news-action" href="@item.ActionHref" target="_blank" rel="noopener noreferrer">
-                                @item.ActionLabel <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                            </a>
-                        </div>
+                        var postImageUrl = GetPostImageUrl(post);
+                        var postDisplayName = GetPostDisplayName(post, postImageUrl);
+
+                        <article class="ocean-glass stream-post-card" @key="entry.Key">
+                            <div class="stream-post-head">
+                                <a class="catch-user" href="@GetProfileRoute(post.Username)">
+                                    <span class="catch-user-icon" aria-hidden="true">
+                                        <AppIcon Name="user" Size="12" />
+                                    </span>
+                                    <span class="catch-user-name">@DisplayNameFor(post.DisplayName, post.Username)</span>
+                                </a>
+                                <div class="stream-post-head-right">
+                                    <span class="feed-source-badge @(post.IsRecommended ? "recommended" : "following")">
+                                        @(post.IsRecommended ? "Recommended" : "Following")
+                                    </span>
+                                    <span class="muted catch-time">@post.CaughtAt.ToLocalTime().ToString("g")</span>
+                                </div>
+                            </div>
+
+                            <div class="catch-species">
+                                <a class="catch-species-link" href="/fish/@post.CatchId">@postDisplayName</a>
+                            </div>
+
+                            <div class="stream-post-media">
+                                <img class="stream-post-image"
+                                     src="@postImageUrl"
+                                     alt="@($"{postDisplayName} catch")"
+                                     loading="lazy" />
+                            </div>
+
+                            <div class="catch-meta">
+                                <span>@FormatLength(post.LengthMeters)</span>
+                                <span>@FormatWeight(post.WeightKg)</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(post.CommentPreviewText))
+                            {
+                                <div class="stream-post-comment-preview" aria-label="Recent comment preview">
+                                    <AppIcon Name="feed" Size="13" />
+                                    <p>
+                                        <span class="comment-preview-author">@($"{post.CommentPreviewAuthor}:")</span>
+                                        <span>@post.CommentPreviewText</span>
+                                    </p>
+                                </div>
+                            }
+
+                            <div class="stream-post-footer">
+                                <div class="stream-social-meta muted">
+                                    <span><AppIcon Name="heart" Size="14" /> @post.ReactionCount</span>
+                                    <span><AppIcon Name="feed" Size="14" /> @post.CommentCount</span>
+                                </div>
+                                <a class="view-catch-link" href="/fish/@post.CatchId">View catch</a>
+                            </div>
+                        </article>
                     }
+                    else if (entry.NeedToKnow is { } item)
+                    {
+                        <article class="modern-news-card news-type-@item.Tag stream-need-to-know-card" @key="entry.Key">
+                            <div class="news-top-bar">
+                                <span class="news-badge tag-@item.Tag">
+                                    @if (item.Tag == "endangered") { <AppIcon Name="heart" Size="12" /> }
+                                    else if (item.Tag == "invasive") { <AppIcon Name="alert-triangle" Size="12" /> }
+                                    else if (item.Tag == "regulation") { <AppIcon Name="book-open" Size="12" /> }
+                                    else if (item.Tag == "conservation") { <AppIcon Name="compass" Size="12" /> }
+                                    Need to know · @item.TagLabel
+                                </span>
+                            </div>
+                            <h4 class="news-headline">@item.Headline</h4>
+                            <p class="news-body-clamp">@item.Body</p>
+                            @if (item.ActionHref is not null)
+                            {
+                                <div class="news-footer">
+                                    <a class="news-action" href="@item.ActionHref" target="_blank" rel="noopener noreferrer">
+                                        @item.ActionLabel
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                                    </a>
+                                </div>
+                            }
+                        </article>
+                    }
+                </ItemContent>
+
+                <Placeholder>
+                    <article class="ocean-glass state-card compact-state loading-more-card">
+                        <p class="muted">Loading more catches…</p>
+                    </article>
+                </Placeholder>
+            </Virtualize>
+
+            @if (!string.IsNullOrWhiteSpace(_feedLoadError) && _timelineEntries.Count > 0)
+            {
+                <article class="ocean-glass state-card compact-state inline-feed-state">
+                    <p class="muted">@_feedLoadError</p>
+                    <button class="action secondary" type="button" @onclick="RetryFeedAsync">Retry</button>
                 </article>
             }
-        </div>
+            else if (!_hasMoreFeed && _feedPosts.Count > 0)
+            {
+                <p class="muted feed-end">You're all caught up.</p>
+            }
+        }
     </section>
 
     <BottomNav />
 </div>
 
 @code {
-    private List<Hooked.Shared.Data.CatchRecord>? allCatches;
+    private const int FeedPageSize = 10;
+    private const string PostImageAssetBasePath = "_content/Hooked.Shared/post-images";
+    private const string DefaultFallbackImageFileName = "na.jpg";
+    private static readonly string[] PostImageCatalogFileNames =
+    [
+        "Brown Trout.jpg",
+        "Common Carp.jpg",
+        "Giant Trevally.jpg",
+        "Prussian Carp.jpg",
+        "Rainbow Trout.jpg",
+        "Sailfish.jpg",
+        "Sardine.jpg",
+        "Sheepshead.jpg",
+        "na.jpg",
+        "na1.jpg",
+        "na2.jpg",
+        "na3.jpg",
+        "na4.jpg",
+        "na5.jpg",
+        "na6.jpg",
+        "na7.jpg",
+        ".DS_Store"
+    ];
+    private static readonly HashSet<string> SupportedPostImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp"
+    };
+
+    private readonly List<HomeFeedPostItem> _feedPosts = [];
+    private readonly List<HomeTimelineEntry> _timelineEntries = [];
+    private readonly HashSet<Guid> _seenCatchIds = [];
+    private readonly SemaphoreSlim _feedLoadGate = new(1, 1);
+    private readonly Dictionary<string, string> _speciesImageUrls = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _fallbackImageUrls = [];
+    private readonly List<string> _placeholderImageUrls = [];
+    private readonly HashSet<string> _placeholderImageUrlSet = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, string> _postImageUrls = [];
+
+    private Virtualize<HomeTimelineEntry>? _timelineVirtualize;
+    private Hooked.Shared.Data.FishingSession? activeSession;
+    private SocialUserLookupDto? _currentUser;
+
     private string? loadErrorMessage;
+    private string? _feedLoadError;
+    private string? _continuationToken;
+
     private int recentCatchCount;
     private int todayCatchCount;
+    private int weeklyXp;
     private string longestCatchText = "—";
 
-    // ── Catches pagination ──────────────────────────────────────────
-    private const int CatchPageSize = 5;
-    private int catchesShowCount = CatchPageSize;
-    private IEnumerable<Hooked.Shared.Data.CatchRecord> visibleCatches =>
-        allCatches?.Take(catchesShowCount) ?? [];
-
-    private void ShowMoreCatches() => catchesShowCount += CatchPageSize;
-    private void CollapseCatches() => catchesShowCount = CatchPageSize;
-
-    // ── News filter state ───────────────────────────────────────────
-    private const int NewsPageSize = 3;
-    private string activeNewsFilter = "all";
-    private int newsShowCount = NewsPageSize;
-
-    private List<NewsItem> filteredNewsItems =>
-        activeNewsFilter == "all"
-            ? NewsItems.ToList()
-            : NewsItems.Where(n => n.Tag == activeNewsFilter).ToList();
-
-    private IEnumerable<NewsItem> visibleNewsItems =>
-        filteredNewsItems.Take(newsShowCount);
-
-    private void SetNewsFilter(string filter)
-    {
-        activeNewsFilter = filter;
-        newsShowCount = NewsPageSize;
-    }
-
-    private void ShowMoreNews() => newsShowCount += NewsPageSize;
-    private void CollapseNews() => newsShowCount = NewsPageSize;
-
-    private sealed record NewsFilter(string Key, string Label);
-
-    private static readonly IReadOnlyList<NewsFilter> NewsFilters =
-    [
-        new("all",          "All"),
-        new("endangered",   "Endangered"),
-        new("invasive",     "Invasive"),
-        new("regulation",   "Regulations"),
-        new("conservation", "Conservation"),
-    ];
+    private bool _hasMoreFeed = true;
+    private bool _isFeedLoadInProgress;
+    private bool _initialFeedLoadCompleted;
 
     [Inject]
     public NavigationManager NavigationManager { get; set; } = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        InitializePostImageCatalog();
+
         try
         {
-            var fetched = await CatchService.GetRecentCatchesAsync(100);
-            allCatches = fetched.ToList();
+            _currentUser = await SocialService.ResolveCurrentUserAsync();
+            activeSession = await SessionService.GetActiveSessionAsync(_currentUser.Id);
 
-            recentCatchCount = allCatches.Count;
-            todayCatchCount = allCatches.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
+            try
+            {
+                weeklyXp = await LeaderboardService.GetUserWeeklyXpAsync(_currentUser.Id);
+            }
+            catch
+            {
+                weeklyXp = 0;
+            }
 
-            var longestCatch = allCatches
-                .Where(c => c.LengthMeters.HasValue)
-                .Select(c => c.LengthMeters!.Value)
-                .DefaultIfEmpty()
-                .Max();
+            try
+            {
+                var fetched = await CatchService.GetRecentCatchesAsync(100);
+                var catches = fetched.ToList();
+                recentCatchCount = catches.Count;
+                todayCatchCount = catches.Count(c => c.CaughtAt.ToLocalTime().Date == DateTime.Today);
 
-            if (longestCatch > 0)
-                longestCatchText = $"{longestCatch:F2} m";
+                var longestCatch = catches
+                    .Where(c => c.LengthMeters.HasValue)
+                    .Select(c => c.LengthMeters!.Value)
+                    .DefaultIfEmpty()
+                    .Max();
+
+                if (longestCatch > 0)
+                {
+                    longestCatchText = $"{longestCatch:F2} m";
+                }
+            }
+            catch
+            {
+                loadErrorMessage = "Could not load your catch stats right now.";
+            }
+
+            await EnsureTimelineEntriesAvailableAsync(FeedPageSize);
         }
-        catch (Exception)
+        catch
         {
-            allCatches = [];
-            loadErrorMessage = "Could not load catches right now.";
+            _feedLoadError = "Could not load community catches right now.";
+            _initialFeedLoadCompleted = true;
+            _hasMoreFeed = false;
         }
     }
 
-    private void ScanFish() => NavigationManager.NavigateTo("/arscanner");
+    private async ValueTask<ItemsProviderResult<HomeTimelineEntry>> ProvideTimelineItemsAsync(ItemsProviderRequest request)
+    {
+        if (_currentUser is not null)
+        {
+            await EnsureTimelineEntriesAvailableAsync(request.StartIndex + request.Count);
+        }
+
+        var items = _timelineEntries
+            .Skip(request.StartIndex)
+            .Take(request.Count)
+            .ToList();
+
+        var totalCount = !string.IsNullOrWhiteSpace(_feedLoadError)
+            ? _timelineEntries.Count
+            : _hasMoreFeed
+                ? Math.Max(_timelineEntries.Count + FeedPageSize, request.StartIndex + request.Count + FeedPageSize)
+                : _timelineEntries.Count;
+
+        return new ItemsProviderResult<HomeTimelineEntry>(items, totalCount);
+    }
+
+    private async Task EnsureTimelineEntriesAvailableAsync(int requiredCount)
+    {
+        if (_currentUser is null || !string.IsNullOrWhiteSpace(_feedLoadError))
+        {
+            return;
+        }
+
+        var guard = 0;
+        while (_timelineEntries.Count < requiredCount && _hasMoreFeed && guard < 4)
+        {
+            var previousPostCount = _feedPosts.Count;
+            await LoadNextFeedPageAsync();
+            guard++;
+
+            if (_feedPosts.Count == previousPostCount)
+            {
+                if (!_hasMoreFeed || !string.IsNullOrWhiteSpace(_feedLoadError))
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task LoadNextFeedPageAsync()
+    {
+        if (_currentUser is null)
+        {
+            return;
+        }
+
+        await _feedLoadGate.WaitAsync();
+
+        try
+        {
+            if (_isFeedLoadInProgress || !_hasMoreFeed || !string.IsNullOrWhiteSpace(_feedLoadError))
+            {
+                return;
+            }
+
+            _isFeedLoadInProgress = true;
+
+            var page = await SocialService.GetCommunityFeedPageAsync(_currentUser.Id, _continuationToken, FeedPageSize);
+            _continuationToken = page.ContinuationToken;
+            _hasMoreFeed = page.HasMore;
+
+            for (var index = 0; index < page.Items.Count; index++)
+            {
+                var dto = page.Items[index];
+                if (!_seenCatchIds.Add(dto.CatchId))
+                {
+                    continue;
+                }
+
+                var isRecommended = index >= page.FollowingCount;
+                var post = MapFeedItem(dto, isRecommended);
+                _feedPosts.Add(post);
+                _postImageUrls[post.CatchId] = ResolvePostImageUrl(post);
+            }
+
+            RebuildTimelineEntries();
+            _feedLoadError = null;
+        }
+        catch
+        {
+            _feedLoadError = "Could not load community catches right now.";
+        }
+        finally
+        {
+            _isFeedLoadInProgress = false;
+            _initialFeedLoadCompleted = true;
+            _feedLoadGate.Release();
+        }
+    }
+
+    private async Task RetryFeedAsync()
+    {
+        if (_currentUser is null)
+        {
+            return;
+        }
+
+        _feedLoadError = null;
+        _hasMoreFeed = true;
+
+        await EnsureTimelineEntriesAvailableAsync(Math.Max(FeedPageSize, _timelineEntries.Count + 1));
+
+        if (_timelineVirtualize is not null)
+        {
+            await _timelineVirtualize.RefreshDataAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    private void RebuildTimelineEntries()
+    {
+        _timelineEntries.Clear();
+
+        var newsIndex = 0;
+        for (var postIndex = 0; postIndex < _feedPosts.Count; postIndex++)
+        {
+            var post = _feedPosts[postIndex];
+            _timelineEntries.Add(HomeTimelineEntry.FromPost(post));
+
+            if (ShouldInsertNeedToKnowCard(postIndex, newsIndex))
+            {
+                _timelineEntries.Add(HomeTimelineEntry.FromNeedToKnow(newsIndex, NeedToKnowItems[newsIndex]));
+                newsIndex++;
+            }
+        }
+    }
+
+    private static bool ShouldInsertNeedToKnowCard(int zeroBasedPostIndex, int insertedCardCount)
+    {
+        if (insertedCardCount >= NeedToKnowItems.Count)
+        {
+            return false;
+        }
+
+        return zeroBasedPostIndex % 4 == 0;
+    }
+
+    private async Task StartSession()
+    {
+        if (_currentUser is null)
+        {
+            _currentUser = await SocialService.ResolveCurrentUserAsync();
+        }
+
+        await SessionService.StartSessionAsync(_currentUser.Id);
+        NavigationManager.NavigateTo("/session/active");
+    }
+
+    private void GoToActiveSession() => NavigationManager.NavigateTo("/session/active");
     private void GoToFishDex() => NavigationManager.NavigateTo("/fishdex");
     private void GoToInsights() => NavigationManager.NavigateTo("/insights");
     private void GoToLeaderboard() => NavigationManager.NavigateTo("/leaderboard");
-    private void OpenCatch(Guid id) => NavigationManager.NavigateTo($"/fish/{id}");
 
-    // ── Static conservation news ────────────────────────────────────
+    private string GetProfileRoute(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return "/profile";
+        }
+
+        if (_currentUser is not null && username.Equals(_currentUser.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            return "/profile";
+        }
+
+        return $"/profile/{Uri.EscapeDataString(username)}";
+    }
+
+    private static string DisplayNameFor(string? displayName, string username)
+    {
+        return string.IsNullOrWhiteSpace(displayName) ? username : displayName;
+    }
+
+    private static string FormatLength(double? lengthMeters)
+    {
+        return lengthMeters.HasValue ? $"{lengthMeters.Value:F2} m" : "Length —";
+    }
+
+    private static string FormatWeight(double? weightKg)
+    {
+        return weightKg.HasValue ? $"{weightKg.Value:F2} kg" : "Weight —";
+    }
+
+    private static string GetPostDisplayName(HomeFeedPostItem post, string imageUrl)
+    {
+        if (!TryGetPostImageName(imageUrl, out var postImageName)
+            || postImageName.StartsWith("na", StringComparison.OrdinalIgnoreCase))
+        {
+            return post.SpeciesCommonName;
+        }
+
+        return postImageName;
+    }
+
+    private static bool TryGetPostImageName(string imageUrl, out string postImageName)
+    {
+        postImageName = string.Empty;
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return false;
+        }
+
+        var trimLength = imageUrl.Length;
+        var queryIndex = imageUrl.IndexOf('?');
+        if (queryIndex >= 0)
+        {
+            trimLength = Math.Min(trimLength, queryIndex);
+        }
+
+        var fragmentIndex = imageUrl.IndexOf('#');
+        if (fragmentIndex >= 0)
+        {
+            trimLength = Math.Min(trimLength, fragmentIndex);
+        }
+
+        var normalizedImageUrl = imageUrl[..trimLength];
+        var imageFileName = Path.GetFileName(normalizedImageUrl);
+        if (string.IsNullOrWhiteSpace(imageFileName))
+        {
+            return false;
+        }
+
+        var decodedImageFileName = Uri.UnescapeDataString(imageFileName);
+        var imageName = Path.GetFileNameWithoutExtension(decodedImageFileName).Trim();
+        if (string.IsNullOrWhiteSpace(imageName))
+        {
+            return false;
+        }
+
+        postImageName = imageName;
+        return true;
+    }
+
+    private string GetPostImageUrl(HomeFeedPostItem post)
+    {
+        if (_postImageUrls.TryGetValue(post.CatchId, out var assignedImageUrl))
+        {
+            return assignedImageUrl;
+        }
+
+        var resolvedImageUrl = ResolvePostImageUrl(post);
+        _postImageUrls[post.CatchId] = resolvedImageUrl;
+        return resolvedImageUrl;
+    }
+
+    private string ResolvePostImageUrl(HomeFeedPostItem post)
+    {
+        var usedPlaceholderImageUrls = new HashSet<string>(
+            _postImageUrls.Values.Where(imageUrl => _placeholderImageUrlSet.Contains(imageUrl)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var speciesName = post.SpeciesCommonName.Trim();
+        if (!string.IsNullOrWhiteSpace(speciesName)
+            && _speciesImageUrls.TryGetValue(speciesName, out var speciesImageUrl))
+        {
+            if (!usedPlaceholderImageUrls.Contains(speciesImageUrl))
+            {
+                return speciesImageUrl;
+            }
+        }
+
+        foreach (var placeholderImageUrl in _placeholderImageUrls)
+        {
+            if (!usedPlaceholderImageUrls.Contains(placeholderImageUrl))
+            {
+                return placeholderImageUrl;
+            }
+        }
+
+        // Once unique placeholders are exhausted, reuse a deterministic fallback per catch.
+        var fallbackIndex = GetDeterministicFallbackIndex(post.CatchId, _placeholderImageUrls.Count);
+        return _placeholderImageUrls[fallbackIndex];
+    }
+
+    private void InitializePostImageCatalog()
+    {
+        _speciesImageUrls.Clear();
+        _fallbackImageUrls.Clear();
+        _placeholderImageUrls.Clear();
+        _placeholderImageUrlSet.Clear();
+
+        foreach (var fileName in PostImageCatalogFileNames)
+        {
+            var extension = Path.GetExtension(fileName);
+            if (!SupportedPostImageExtensions.Contains(extension))
+            {
+                continue;
+            }
+
+            var imageUrl = $"{PostImageAssetBasePath}/{Uri.EscapeDataString(fileName)}";
+            var stem = Path.GetFileNameWithoutExtension(fileName);
+            _placeholderImageUrls.Add(imageUrl);
+            _placeholderImageUrlSet.Add(imageUrl);
+
+            if (stem.StartsWith("na", StringComparison.OrdinalIgnoreCase))
+            {
+                _fallbackImageUrls.Add(imageUrl);
+                continue;
+            }
+
+            _speciesImageUrls[stem] = imageUrl;
+        }
+
+        _fallbackImageUrls.Sort(StringComparer.OrdinalIgnoreCase);
+
+        if (_placeholderImageUrls.Count == 0)
+        {
+            var defaultImageUrl = $"{PostImageAssetBasePath}/{Uri.EscapeDataString(DefaultFallbackImageFileName)}";
+            _placeholderImageUrls.Add(defaultImageUrl);
+            _placeholderImageUrlSet.Add(defaultImageUrl);
+        }
+
+        if (_fallbackImageUrls.Count == 0)
+        {
+            var defaultImageUrl = _placeholderImageUrls[0];
+            _fallbackImageUrls.Add(defaultImageUrl);
+        }
+    }
+
+    private static int GetDeterministicFallbackIndex(Guid catchId, int fallbackCount)
+    {
+        if (fallbackCount <= 1)
+        {
+            return 0;
+        }
+
+        var bytes = catchId.ToByteArray();
+        var hash = BitConverter.ToUInt32(bytes, 0);
+        return (int)(hash % (uint)fallbackCount);
+    }
+
+    private static HomeFeedPostItem MapFeedItem(SocialCatchFeedItemDto dto, bool isRecommended)
+    {
+        var latestComment = dto.RecentComments
+            .OrderByDescending(comment => comment.CommentedAt)
+            .FirstOrDefault();
+        var previewText = string.IsNullOrWhiteSpace(latestComment?.CommentText)
+            ? null
+            : latestComment.CommentText.Trim();
+        var previewAuthor = latestComment is null
+            ? null
+            : string.IsNullOrWhiteSpace(DisplayNameFor(latestComment.DisplayName, latestComment.Username))
+                ? "Angler"
+                : DisplayNameFor(latestComment.DisplayName, latestComment.Username);
+
+        return new HomeFeedPostItem(
+            dto.CatchId,
+            dto.UserId,
+            dto.Username,
+            dto.DisplayName,
+            dto.CaughtAt,
+            dto.SpeciesCommonName,
+            dto.LengthMeters,
+            dto.WeightKg,
+            dto.ReactionCount,
+            dto.CommentCount,
+            previewAuthor,
+            previewText,
+            isRecommended);
+    }
+
+    private sealed record HomeFeedPostItem(
+        Guid CatchId,
+        Guid UserId,
+        string Username,
+        string? DisplayName,
+        DateTime CaughtAt,
+        string SpeciesCommonName,
+        double? LengthMeters,
+        double? WeightKg,
+        int ReactionCount,
+        int CommentCount,
+        string? CommentPreviewAuthor,
+        string? CommentPreviewText,
+        bool IsRecommended);
+
+    private sealed record HomeTimelineEntry(string Key, HomeFeedPostItem? Post, NewsItem? NeedToKnow)
+    {
+        public static HomeTimelineEntry FromPost(HomeFeedPostItem post)
+            => new($"post-{post.CatchId}", post, null);
+
+        public static HomeTimelineEntry FromNeedToKnow(int index, NewsItem card)
+            => new($"need-to-know-{index}", null, card);
+    }
 
     private sealed record NewsItem(string Tag, string TagLabel, string Headline, string Body, string? ActionLabel = null, string? ActionHref = null);
 
-    private static readonly IReadOnlyList<NewsItem> NewsItems =
+    private static readonly IReadOnlyList<NewsItem> NeedToKnowItems =
     [
         new("endangered", "Endangered",
             "Murray Cod under threat",
@@ -297,6 +797,6 @@
             "Recreational fishing licence reminder",
             "Most Australian states require a recreational fishing licence for saltwater and freshwater fishing. Fines for non-compliance can exceed $500. Always carry your licence.",
             "GetFishing – Licence Info",
-            "https://www.getfishing.com.au/fishing-licences"),
+            "https://www.getfishing.com.au/fishing-licences")
     ];
 }

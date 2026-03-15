@@ -15,10 +15,13 @@ namespace Hooked.Shared.Services
         Task<SocialProfileSummaryDto?> GetProfileSummaryByIdAsync(Guid userId, Guid? viewerUserId = null, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<SocialCatchFeedItemDto>> GetUserFeedAsync(Guid userId, Guid viewerUserId, int limit = 25, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<SocialCatchFeedItemDto>> GetCommunityFeedAsync(Guid viewerUserId, int limit = 25, CancellationToken cancellationToken = default);
+        Task<SocialCommunityFeedPageDto> GetCommunityFeedPageAsync(Guid viewerUserId, string? continuationToken = null, int limit = 25, CancellationToken cancellationToken = default);
         Task<bool> FollowAsync(Guid userId, Guid targetUserId, CancellationToken cancellationToken = default);
         Task<bool> UnfollowAsync(Guid userId, Guid targetUserId, CancellationToken cancellationToken = default);
         Task<SocialReactionToggleDto> ToggleReactionAsync(Guid catchId, Guid userId, CancellationToken cancellationToken = default);
         Task<SocialCommentDto> AddCommentAsync(Guid catchId, Guid userId, string commentText, CancellationToken cancellationToken = default);
+        Task<SocialCommentDto> EditCommentAsync(Guid commentId, Guid requestingUserId, string newText, CancellationToken cancellationToken = default);
+        Task DeleteCommentAsync(Guid commentId, Guid requestingUserId, CancellationToken cancellationToken = default);
     }
 
     public sealed record SocialUserLookupDto(Guid Id, string Username, string? DisplayName, DateTime CreatedAt);
@@ -40,7 +43,8 @@ namespace Hooked.Shared.Services
         string Username,
         string? DisplayName,
         string CommentText,
-        DateTime CommentedAt);
+        DateTime CommentedAt,
+        DateTime? EditedAt);
 
     public sealed record SocialCatchFeedItemDto(
         Guid CatchId,
@@ -57,7 +61,15 @@ namespace Hooked.Shared.Services
         int ReactionCount,
         int CommentCount,
         bool ViewerHasReacted,
+        bool IsFavorite,
         IReadOnlyList<SocialCommentDto> RecentComments);
+
+    public sealed record SocialCommunityFeedPageDto(
+        IReadOnlyList<SocialCatchFeedItemDto> Items,
+        string? ContinuationToken,
+        bool HasMore,
+        int FollowingCount,
+        int RecommendedCount);
 
     public sealed record SocialReactionToggleDto(Guid CatchId, Guid UserId, bool IsReacted, int ReactionCount);
 }

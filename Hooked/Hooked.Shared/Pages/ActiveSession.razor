@@ -1,0 +1,145 @@
+@page "/session/active"
+@using Hooked.Shared.Data
+@using Hooked.Shared.Services
+@inject ISessionService SessionService
+@inject ISocialService SocialService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Active Fishing Session</PageTitle>
+
+<div class="mobile-shell session-shell">
+    <header class="home-top-bar">
+        <button class="ghost-icon" @onclick="GoBack" aria-label="Back">
+            <AppIcon Name="arrow-left" Size="24" />
+        </button>
+        <h1 class="greeting">Active Session</h1>
+        <div style="width: 24px"></div>
+    </header>
+
+    @if (isLoading)
+    {
+        <div class="loading-pulse">Loading session...</div>
+    }
+    else if (activeSession == null)
+    {
+        <div class="empty-state">
+            <p>No active session found.</p>
+            <button class="primary-btn" @onclick="GoBack">Go Back</button>
+        </div>
+    }
+    else
+    {
+        <section class="session-stats ocean-glass">
+            <div class="stat-box">
+                <span class="stat-label">Duration</span>
+                <span class="stat-val">@elapsed.ToString(@"hh\:mm\:ss")</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Catches</span>
+                <span class="stat-val">@activeSession.Catches.Count</span>
+            </div>
+        </section>
+
+        <section class="main-cta-container">
+            <button class="scanner-btn" @onclick="ScanFish">
+                <div class="scanner-btn-content">
+                    <div class="scanner-icon-wrap">
+                        <AppIcon Name="scan" Size="26" />
+                    </div>
+                    <div class="scanner-text">
+                        <span class="scanner-title">Log a Catch</span>
+                        <span class="scanner-desc">Scan fish to add to this session</span>
+                    </div>
+                </div>
+            </button>
+        </section>
+
+        <section class="recent">
+            <h3>Session Catches</h3>
+            @if (!activeSession.Catches.Any())
+            {
+                <div class="empty-state">
+                    <AppIcon Name="fish" Size="32" />
+                    <p>No catches recorded yet in this session.</p>
+                </div>
+            }
+            else
+            {
+                <div class="recent-list-compact">
+                    @foreach (var c in activeSession.Catches.OrderByDescending(x => x.CaughtAt))
+                    {
+                        <article class="catch-card-compact">
+                            <div class="catch-photo-compact">
+                                <AppIcon Name='@((c.PhotoPath is null) ? "fish" : "image")' Size="18" />
+                            </div>
+                            <div class="catch-meta">
+                                <div class="species">@c.Species?.CommonName</div>
+                                <div class="details">@((c.LengthMeters.HasValue) ? ($"{c.LengthMeters:F2} m") : "—") • @c.CaughtAt.ToLocalTime().ToString("t")</div>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="end-session-container">
+            <button class="scanner-btn end-btn" @onclick="EndSession">
+                <div class="scanner-btn-content">
+                    <div class="scanner-icon-wrap">
+                        <AppIcon Name="alert-triangle" Size="26" />
+                    </div>
+                    <div class="scanner-text">
+                        <span class="scanner-title">End Session</span>
+                        <span class="scanner-desc">Conclude your fishing trip</span>
+                    </div>
+                </div>
+            </button>
+        </section>
+    }
+</div>
+
+@code {
+    private FishingSession? activeSession;
+    private bool isLoading = true;
+    private System.Threading.Timer? timer;
+    private TimeSpan elapsed = TimeSpan.Zero;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await SocialService.ResolveCurrentUserAsync();
+        activeSession = await SessionService.GetActiveSessionAsync(currentUser.Id);
+
+        if (activeSession != null)
+        {
+            UpdateElapsed(null);
+            timer = new System.Threading.Timer(UpdateElapsed, null, 0, 1000);
+        }
+
+        isLoading = false;
+    }
+
+    private void UpdateElapsed(object? state)
+    {
+        if (activeSession != null)
+        {
+            elapsed = DateTime.UtcNow - activeSession.StartTime;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/");
+    private void ScanFish() => NavigationManager.NavigateTo("/arscanner");
+
+    private void EndSession()
+    {
+        if (activeSession != null)
+        {
+            NavigationManager.NavigateTo($"/session/end/{activeSession.Id}");
+        }
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

@@ -1,5 +1,8 @@
 using System;
 using Hooked.Shared.Services.AI;
+using Hooked.Shared.Services.Search;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Transport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,10 +18,17 @@ namespace Hooked.Shared.Services
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IFishService, FishService>();
             services.AddScoped<ICatchService, CatchService>();
+            services.AddScoped<IAchievementService, AchievementService>();
             services.AddScoped<IFishDexService, FishDexService>();
             services.AddScoped<ISocialService, SocialService>();
+            services.AddScoped<IFishingQuestService, FishingQuestService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
             services.AddScoped<IMapService, MapService>();
+            services.AddScoped<ISessionService, SessionService>();
+            services.Configure<ProgressionOptions>(configuration.GetSection(ProgressionOptions.SectionName));
+            services.AddScoped<IXpNotificationService, XpNotificationService>();
+            services.AddScoped<IProgressionService, ProgressionService>();
+            services.AddScoped<INotificationService, NotificationService>();
 
             services.AddSingleton<InsightsCacheService>();
 
@@ -38,6 +48,21 @@ namespace Hooked.Shared.Services
 
             services.AddSingleton<ICameraCalibrationService, CameraCalibrationService>();
             services.AddSingleton<IReferenceMeasurementService, ReferenceMeasurementService>();
+
+            // Elasticsearch — optional: skipped when URL or API key is not configured
+            var elasticUrl = configuration["Elasticsearch:Url"];
+            var elasticApiKey = configuration["Elasticsearch:ApiKey"];
+            if (!string.IsNullOrWhiteSpace(elasticUrl) && !string.IsNullOrWhiteSpace(elasticApiKey))
+            {
+                services.AddSingleton<ElasticsearchClient>(_ =>
+                {
+                    var settings = new ElasticsearchClientSettings(new Uri(elasticUrl))
+                        .Authentication(new ApiKey(elasticApiKey));
+                    return new ElasticsearchClient(settings);
+                });
+
+                services.AddScoped<IElasticSearchService, ElasticSearchService>();
+            }
 
             return services;
         }

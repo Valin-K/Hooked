@@ -12,6 +12,13 @@ namespace Hooked.Shared.Data
         // Users of the app
         public DbSet<User> Users { get; set; } = null!;
 
+        // Progression skills and user progress
+        public DbSet<Skill> Skills { get; set; } = null!;
+        public DbSet<UserSkill> UserSkills { get; set; } = null!;
+        public DbSet<XpEvent> XpEvents { get; set; } = null!;
+        public DbSet<FishingQuest> FishingQuests { get; set; } = null!;
+        public DbSet<UserFishingQuestProgress> UserFishingQuestProgresses { get; set; } = null!;
+
         // Known fish species catalog
         public DbSet<FishSpecies> FishSpecies { get; set; } = null!;
 
@@ -32,8 +39,19 @@ namespace Hooked.Shared.Data
         // Per-user collection entries (FishDex)
         public DbSet<FishDexEntry> FishDexEntries { get; set; } = null!;
 
+        // Fishing Sessions and Posts
+        public DbSet<FishingSession> FishingSessions { get; set; } = null!;
+        public DbSet<Post> Posts { get; set; } = null!;
+        public DbSet<PostPhoto> PostPhotos { get; set; } = null!;
+
+        // Per-user earned achievements
+        public DbSet<UserAchievement> UserAchievements { get; set; } = null!;
+
         // Cached leaderboard entries (optional)
         public DbSet<LeaderboardEntry> LeaderboardEntries { get; set; } = null!;
+
+        // In-app notifications
+        public DbSet<Notification> Notifications { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,6 +63,102 @@ namespace Hooked.Shared.Data
                 b.HasIndex(u => u.Username).IsUnique();
                 b.Property(u => u.DisplayName).HasMaxLength(100);
                 b.Property(u => u.Email).HasMaxLength(254);
+            });
+
+            modelBuilder.Entity<Skill>(b =>
+            {
+                b.ToTable("skills");
+                b.HasKey(s => s.Id);
+                b.Property(s => s.Id).ValueGeneratedNever();
+                b.Property(s => s.Key).HasMaxLength(100).IsRequired();
+                b.Property(s => s.Name).HasMaxLength(120).IsRequired();
+                b.Property(s => s.Description).HasMaxLength(500);
+                b.HasIndex(s => s.Key).IsUnique();
+            });
+
+            modelBuilder.Entity<UserSkill>(b =>
+            {
+                b.ToTable("user_skills");
+                b.HasKey(us => us.Id);
+                b.HasIndex(us => new { us.UserId, us.SkillId }).IsUnique();
+                b.HasIndex(us => us.LastUpdatedAt);
+
+                b.HasOne(us => us.User)
+                    .WithMany(u => u.UserSkills)
+                    .HasForeignKey(us => us.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(us => us.Skill)
+                    .WithMany(s => s.UserSkills)
+                    .HasForeignKey(us => us.SkillId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<XpEvent>(b =>
+            {
+                b.ToTable("xp_events");
+                b.HasKey(e => e.Id);
+                b.Property(e => e.EventKey).HasMaxLength(200).IsRequired();
+                b.Property(e => e.Reason).HasMaxLength(300);
+                b.Property(e => e.Metadata).HasMaxLength(4000);
+
+                b.HasIndex(e => e.EventKey).IsUnique();
+                b.HasIndex(e => new { e.UserId, e.SkillId, e.CreatedAt });
+
+                b.HasOne(e => e.User)
+                    .WithMany(u => u.XpEvents)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(e => e.Skill)
+                    .WithMany(s => s.XpEvents)
+                    .HasForeignKey(e => e.SkillId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(e => e.CatchRecord)
+                    .WithMany()
+                    .HasForeignKey(e => e.CatchRecordId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<FishingQuest>(b =>
+            {
+                b.ToTable("fishing_quests");
+                b.HasKey(q => q.Id);
+                b.Property(q => q.Key).HasMaxLength(100).IsRequired();
+                b.Property(q => q.Name).HasMaxLength(120).IsRequired();
+                b.Property(q => q.Description).HasMaxLength(500);
+                b.HasIndex(q => q.Key).IsUnique();
+                b.HasIndex(q => new { q.Cadence, q.IsActive });
+
+                b.HasOne(q => q.Skill)
+                    .WithMany()
+                    .HasForeignKey(q => q.SkillId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<UserFishingQuestProgress>(b =>
+            {
+                b.ToTable("user_fishing_quest_progress");
+                b.HasKey(q => q.Id);
+                b.HasIndex(q => new { q.UserId, q.QuestId, q.PeriodStartUtc }).IsUnique();
+                b.HasIndex(q => new { q.UserId, q.PeriodStartUtc, q.PeriodEndUtc });
+                b.HasIndex(q => new { q.UserId, q.IsCompleted, q.RewardClaimedAtUtc });
+
+                b.HasOne(q => q.User)
+                    .WithMany(u => u.FishingQuestProgress)
+                    .HasForeignKey(q => q.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(q => q.Quest)
+                    .WithMany(q => q.UserProgress)
+                    .HasForeignKey(q => q.QuestId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(q => q.RewardXpEvent)
+                    .WithMany()
+                    .HasForeignKey(q => q.RewardXpEventId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<FishSpecies>(b =>
@@ -65,12 +179,15 @@ namespace Hooked.Shared.Data
                 b.HasKey(c => c.Id);
                 b.HasOne(c => c.User).WithMany(u => u.Catches).HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
                 b.HasOne(c => c.Species).WithMany(s => s.Catches).HasForeignKey(c => c.SpeciesId).OnDelete(DeleteBehavior.Restrict);
+                b.HasOne(c => c.FishingSession).WithMany(s => s.Catches).HasForeignKey(c => c.FishingSessionId).OnDelete(DeleteBehavior.SetNull);
 
                 b.HasIndex(c => c.UserId);
                 b.HasIndex(c => c.SpeciesId);
                 b.HasIndex(c => c.CaughtAt);
+                b.HasIndex(c => new { c.UserId, c.IsFavorite });
 
                 b.Property(c => c.PhotoPath).HasMaxLength(512);
+                b.Property(c => c.IsFavorite).HasDefaultValue(false);
             });
 
             modelBuilder.Entity<CatchReaction>(b =>
@@ -129,11 +246,63 @@ namespace Hooked.Shared.Data
                 b.HasIndex(fd => fd.UnlockedAt);
             });
 
+            modelBuilder.Entity<FishingSession>(b =>
+            {
+                b.HasKey(s => s.Id);
+                b.HasOne(s => s.User).WithMany(u => u.FishingSessions).HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(s => s.UserId);
+                b.HasIndex(s => s.StartTime);
+            });
+
+            modelBuilder.Entity<Post>(b =>
+            {
+                b.HasKey(p => p.Id);
+                b.HasOne(p => p.User).WithMany(u => u.Posts).HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(p => p.FishingSession).WithMany().HasForeignKey(p => p.FishingSessionId).OnDelete(DeleteBehavior.Restrict);
+
+                b.Property(p => p.Title).HasMaxLength(200);
+                b.Property(p => p.LocationName).HasMaxLength(200);
+                b.HasIndex(p => p.UserId);
+                b.HasIndex(p => p.CreatedAt);
+            });
+
+            modelBuilder.Entity<PostPhoto>(b =>
+            {
+                b.HasKey(p => p.Id);
+                b.HasOne(p => p.Post).WithMany(post => post.Photos).HasForeignKey(p => p.PostId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.PhotoPath).HasMaxLength(512).IsRequired();
+            });
+
+            modelBuilder.Entity<UserAchievement>(b =>
+            {
+                b.HasKey(ua => new { ua.UserId, ua.AchievementId });
+                b.HasOne(ua => ua.User).WithMany(u => u.UserAchievements).HasForeignKey(ua => ua.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(ua => ua.Achievement).WithMany(a => a.UserAchievements).HasForeignKey(ua => ua.AchievementId).OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(ua => ua.UserId);
+                b.HasIndex(ua => ua.EarnedAt);
+            });
+
             modelBuilder.Entity<LeaderboardEntry>(b =>
             {
                 b.HasKey(l => l.Id);
                 b.HasIndex(l => new { l.Category, l.Score });
                 b.HasOne(l => l.User).WithMany().HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Notification>(b =>
+            {
+                b.HasKey(n => n.Id);
+                b.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(n => n.Catch).WithMany().HasForeignKey(n => n.CatchId).OnDelete(DeleteBehavior.SetNull);
+                b.HasOne(n => n.TriggeredByUser).WithMany().HasForeignKey(n => n.TriggeredByUserId).OnDelete(DeleteBehavior.SetNull);
+                b.HasOne(n => n.Achievement).WithMany().HasForeignKey(n => n.AchievementId).OnDelete(DeleteBehavior.SetNull);
+
+                b.Property(n => n.Type).HasMaxLength(50).IsRequired();
+                b.Property(n => n.Title).HasMaxLength(300).IsRequired();
+                b.Property(n => n.Body).HasMaxLength(500);
+
+                b.HasIndex(n => new { n.UserId, n.IsRead });
+                b.HasIndex(n => new { n.UserId, n.CreatedAt });
             });
 
             // Seed minimal species entries could be added later via initializer

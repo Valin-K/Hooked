@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject IFishDexService FishDexService
 @inject ISocialService SocialService
+@inject ISessionService SessionService
 @inject IGeminiFishSpeciesService GeminiService
 @inject IReferenceMeasurementService MeasurementService
 @inject ICameraCalibrationService CalibrationService
@@ -236,6 +237,28 @@
     </div>
 }
 
+@if (_showAchievementPopup && _pendingAchievements.Count > 0)
+{
+    var current = _pendingAchievements[0];
+    <div class="scanner-popup-overlay" @onclick="CloseAchievementPopup">
+        <div class="ocean-glass scanner-popup" @onclick:stopPropagation="true">
+            <h2>🏆 Achievement Unlocked!</h2>
+            <p><strong>@current.Title</strong></p>
+            @if (!string.IsNullOrWhiteSpace(current.Description))
+            {
+                <p class="muted">@current.Description</p>
+            }
+            @if (_pendingAchievements.Count > 1)
+            {
+                <p class="muted">+@(_pendingAchievements.Count - 1) more…</p>
+            }
+            <button class="action primary" type="button" @onclick="CloseAchievementPopup">
+                @(_pendingAchievements.Count > 1 ? "Next" : "Nice!")
+            </button>
+        </div>
+    </div>
+}
+
 @code {
     private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
 
@@ -253,6 +276,8 @@
     private bool _showUnlockPopup;
     private bool _showPersonalBestPopup;
     private bool _showEnvironmentalPopup;
+    private bool _showAchievementPopup;
+    private List<AchievementUnlockDto> _pendingAchievements = [];
     private string? _environmentalImpactMessage;
     private bool _autoMeasureEnabled;
     private bool _isAutoMeasuring;
@@ -263,6 +288,15 @@
     private string _referenceObjectSizeText = "0.1";
     private string _assumedDistanceText = "0.5";
     private byte[]? _photoBytes;
+
+    private bool _hasActiveSession;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await SocialService.ResolveCurrentUserAsync();
+        var activeSession = await SessionService.GetActiveSessionAsync(currentUser.Id);
+        _hasActiveSession = activeSession != null;
+    }
 
     private async Task HandlePhotoSelectedAsync(InputFileChangeEventArgs eventArgs)
     {
@@ -363,6 +397,8 @@
         _showUnlockPopup = false;
         _showPersonalBestPopup = false;
         _showEnvironmentalPopup = false;
+        _showAchievementPopup = false;
+        _pendingAchievements = [];
         _environmentalImpactMessage = null;
 
 		if (_autoMeasureEnabled && _selectedPhoto is not null)
@@ -562,6 +598,8 @@
         _showUnlockPopup = false;
         _showPersonalBestPopup = false;
         _showEnvironmentalPopup = false;
+        _showAchievementPopup = false;
+        _pendingAchievements = [];
         _statusMessage = "Scanning fish species...";
         _errorMessage = null;
 
@@ -616,6 +654,12 @@
             _showUnlockPopup = scanResult.IsFirstCatchForUser && !scanResult.IsNewGlobalSpecies;
             _showPersonalBestPopup = !scanResult.IsFirstCatchForUser && scanResult.IsNewPersonalBest;
 
+            if (scanResult.NewlyUnlockedAchievements.Count > 0)
+            {
+                _pendingAchievements = [.. scanResult.NewlyUnlockedAchievements];
+                _showAchievementPopup = true;
+            }
+
             if (scanResult.WasImageGenerated)
             {
                 _statusMessage = "Catch logged, FishDex updated, and a new species image was generated.";
@@ -644,6 +688,18 @@
             {
                 // In case getting environmental impact fails, we shouldn't fail the whole catch process.
                 Console.WriteLine($"Error getting environmental impact: {ex.Message}");
+            }
+
+            // After scanning, if there is an active session and NO popups are showing, navigate back immediately.
+            // If popups are showing, the navigation happens when the user dismisses the last popup.
+            if (_hasActiveSession)
+            {
+                if (!_showGlobalDiscoveryPopup && !_showUnlockPopup && !_showPersonalBestPopup && !_showEnvironmentalPopup && !_showAchievementPopup)
+                {
+                    _statusMessage = "Catch logged to your active session. Returning...";
+                    await Task.Delay(1500); // Give them a moment to read the results
+                    NavigationManager.NavigateTo("/session/active");
+                }
             }
         }
         catch (OperationCanceledException)
@@ -699,20 +755,51 @@
     private void CloseGlobalDiscoveryPopup()
     {
         _showGlobalDiscoveryPopup = false;
+        CheckNavigateToSession();
     }
 
     private void CloseUnlockPopup()
     {
         _showUnlockPopup = false;
+        CheckNavigateToSession();
     }
 
     private void ClosePersonalBestPopup()
     {
         _showPersonalBestPopup = false;
+        CheckNavigateToSession();
     }
 
     private void CloseEnvironmentalPopup()
     {
         _showEnvironmentalPopup = false;
+        CheckNavigateToSession();
+    }
+
+    private void CloseAchievementPopup()
+    {
+        if (_pendingAchievements.Count > 0)
+        {
+            _pendingAchievements.RemoveAt(0);
+        }
+
+        if (_pendingAchievements.Count == 0)
+        {
+            _showAchievementPopup = false;
+            CheckNavigateToSession();
+        }
+    }
+
+    private void CheckNavigateToSession()
+    {
+        if (_hasActiveSession && 
+            !_showGlobalDiscoveryPopup && 
+            !_showUnlockPopup && 
+            !_showPersonalBestPopup && 
+            !_showEnvironmentalPopup &&
+            !_showAchievementPopup)
+        {
+            NavigationManager.NavigateTo("/session/active");
+        }
     }
 }

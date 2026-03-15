@@ -18,7 +18,7 @@ namespace Hooked.Shared.Data
                 throw new ArgumentException("Database path cannot be null, empty, or whitespace.", nameof(databasePath));
             }
 
-            services.AddDbContext<HookedDbContext>((serviceProvider, options) =>
+            services.AddDbContextFactory<HookedDbContext>((serviceProvider, options) =>
             {
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
                 var useSupabase = configuration.GetValue<bool>("DatabaseConfiguration:UseSupabase");
@@ -38,6 +38,9 @@ namespace Hooked.Shared.Data
                     options.UseSqlite($"Data Source={databasePath}");
                 }
             });
+
+            services.AddScoped<HookedDbContext>(sp =>
+                sp.GetRequiredService<IDbContextFactory<HookedDbContext>>().CreateDbContext());
 
             services.AddScoped<IHookedDatabaseInitializer, HookedDatabaseInitializer>();
 

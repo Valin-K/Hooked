@@ -1,6 +1,9 @@
 @implements IDisposable
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
+@inject ISocialService SocialService
+@inject INotificationService NotificationService
+@using Hooked.Shared.Services
 
 <aside class="side-nav ocean-glass" aria-label="Primary navigation">
     <a href="/" class="side-nav-brand" title="Hooked" aria-label="Hooked home">
@@ -19,6 +22,19 @@
                 </span>
             </a>
         }
+
+        <a href="/notifications"
+           class="@GetNavItemClass("/notifications") side-notif-link"
+           title="Notifications"
+           aria-label="Notifications">
+            <span class="side-nav-icon" aria-hidden="true">
+                <AppIcon Name="bell" Size="19" />
+            </span>
+            @if (_unreadCount > 0)
+            {
+                <span class="side-notif-badge" aria-label="@_unreadCount unread">@(_unreadCount > 99 ? "99+" : _unreadCount.ToString())</span>
+            }
+        </a>
     </nav>
 
     <button class="ghost-icon side-theme-toggle"
@@ -32,11 +48,14 @@
 
 @code {
     private bool _isDarkMode = true;
+    private bool _isDisposed;
+    private int _unreadCount;
+    private Guid _currentUserId;
+    private string _currentRoutePath = "/";
 
     private static readonly IReadOnlyList<NavItem> NavItems =
     [
         new("/", "Home", "home", "home"),
-        new("/feed", "Feed", "feed", "feed"),
         new("/arscanner", "Scan", "scan", "scan"),
         new("/map", "Map", "map", "compass"),
         new("/insights", "Insights", "chart-line", "chart-bar"),
@@ -47,19 +66,54 @@
 
     protected override void OnInitialized()
     {
+        _currentRoutePath = GetNormalizedRoutePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUnreadCountAsync();
+    }
+
+    private async Task LoadUnreadCountAsync()
+    {
+        try
+        {
+            if (_currentUserId == Guid.Empty)
+            {
+                var user = await SocialService.ResolveCurrentUserAsync();
+                _currentUserId = user.Id;
+            }
+            _unreadCount = await NotificationService.GetUnreadCountAsync(_currentUserId);
+        }
+        catch
+        {
+            _unreadCount = 0;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (!firstRender || _isDisposed)
         {
             return;
         }
 
-        var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
-        _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
-        StateHasChanged();
+        try
+        {
+            var theme = await JS.InvokeAsync<string>("hookedTheme.getTheme");
+            _isDarkMode = string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase);
+            if (!_isDisposed)
+            {
+                StateHasChanged();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task ToggleThemeAsync()
@@ -88,33 +142,105 @@
 
     private bool IsRouteActive(string href)
     {
-        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        var currentPath = $"/{relativePath.Split('?', '#')[0]}".TrimEnd('/');
-        var normalizedHref = href.TrimEnd('/');
-
-        if (string.IsNullOrEmpty(currentPath))
-        {
-            currentPath = "/";
-        }
-
-        if (string.IsNullOrEmpty(normalizedHref))
-        {
-            normalizedHref = "/";
-        }
-
+        var normalizedHref = GetNormalizedRoutePath(href);
         return normalizedHref == "/"
-            ? currentPath.Equals("/", StringComparison.OrdinalIgnoreCase)
-            : currentPath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase) ||
-              currentPath.StartsWith($"{normalizedHref}/", StringComparison.OrdinalIgnoreCase);
+            ? _currentRoutePath.Equals("/", StringComparison.OrdinalIgnoreCase)
+            : _currentRoutePath.Equals(normalizedHref, StringComparison.OrdinalIgnoreCase) ||
+              _currentRoutePath.StartsWith($"{normalizedHref}/", StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        InvokeAsync(StateHasChanged);
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _currentRoutePath = GetNormalizedRoutePath(e.Location);
+
+        _ = InvokeAsync(async () =>
+        {
+            if (!_isDisposed)
+            {
+                await LoadUnreadCountAsync();
+                StateHasChanged();
+            }
+        });
+    }
+
+    private string GetNormalizedRoutePath(string uriOrPath)
+    {
+        if (string.IsNullOrWhiteSpace(uriOrPath))
+        {
+            return "/";
+        }
+
+        var trimmedUriOrPath = uriOrPath.Trim();
+
+        if (Uri.IsWellFormedUriString(trimmedUriOrPath, UriKind.Relative))
+        {
+            return NormalizeRoutePath(trimmedUriOrPath);
+        }
+
+        if (!Uri.TryCreate(trimmedUriOrPath, UriKind.Absolute, out var absoluteUri))
+        {
+            return NormalizeRoutePath(trimmedUriOrPath);
+        }
+
+        if (!CanNormalizeAgainstBaseUri(absoluteUri))
+        {
+            return "/";
+        }
+
+        try
+        {
+            var relativePath = NavigationManager.ToBaseRelativePath(absoluteUri.ToString());
+            return NormalizeRoutePath(relativePath);
+        }
+        catch (ArgumentException)
+        {
+            return "/";
+        }
+    }
+
+    private bool CanNormalizeAgainstBaseUri(Uri absoluteUri)
+    {
+        if (!absoluteUri.IsAbsoluteUri ||
+            (!string.Equals(absoluteUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(absoluteUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var baseUri = NavigationManager.ToAbsoluteUri(NavigationManager.BaseUri);
+        return baseUri.IsBaseOf(absoluteUri);
+    }
+
+    private static string NormalizeRoutePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "/";
+        }
+
+        var noQueryOrFragment = path.Split('?', '#')[0].Trim();
+        if (string.IsNullOrEmpty(noQueryOrFragment))
+        {
+            return "/";
+        }
+
+        if (!noQueryOrFragment.StartsWith('/'))
+        {
+            noQueryOrFragment = $"/{noQueryOrFragment}";
+        }
+
+        var normalizedPath = noQueryOrFragment.TrimEnd('/');
+        return string.IsNullOrEmpty(normalizedPath) ? "/" : normalizedPath;
     }
 
     public void Dispose()
     {
+        _isDisposed = true;
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 
