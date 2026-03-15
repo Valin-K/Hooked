@@ -10,21 +10,23 @@ namespace Hooked.Shared.Services
 {
     public sealed class FishingQuestService : IFishingQuestService
     {
-        private readonly HookedDbContext _db;
+        private readonly IDbContextFactory<HookedDbContext> _dbFactory;
         private readonly IProgressionService _progressionService;
 
-        public FishingQuestService(HookedDbContext db, IProgressionService progressionService)
+        public FishingQuestService(IDbContextFactory<HookedDbContext> dbFactory, IProgressionService progressionService)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _progressionService = progressionService ?? throw new ArgumentNullException(nameof(progressionService));
         }
 
         public async Task<IReadOnlyList<FishingQuestProgressDto>> GetActiveQuestsAsync(Guid userId, DateTime? asOfUtc = null, CancellationToken cancellationToken = default)
         {
             ValidateUserId(userId);
-            await EnsureUserExistsAsync(userId, cancellationToken).ConfigureAwait(false);
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await EnsureUserExistsAsync(db, userId, cancellationToken).ConfigureAwait(false);
 
             var questProgress = await GetOrCreateProgressRowsAsync(
+                db,
                 userId,
                 NormalizeToUtc(asOfUtc ?? DateTime.UtcNow),
                 cancellationToken).ConfigureAwait(false);
@@ -42,7 +44,9 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Catch record ID is required.", nameof(catchRecordId));
             }
 
-            var catchExists = await _db.CatchRecords
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+            var catchExists = await db.CatchRecords
                 .AsNoTracking()
                 .AnyAsync(catchRecord => catchRecord.Id == catchRecordId && catchRecord.UserId == userId, cancellationToken)
                 .ConfigureAwait(false);
@@ -52,6 +56,7 @@ namespace Hooked.Shared.Services
             }
 
             var questProgress = await GetOrCreateProgressRowsAsync(
+                db,
                 userId,
                 NormalizeToUtc(caughtAtUtc),
                 cancellationToken).ConfigureAwait(false);
@@ -79,7 +84,7 @@ namespace Hooked.Shared.Services
                 progress.LastUpdatedAtUtc = now;
             }
 
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return questProgress
                 .Select(state => MapToDto(state.Quest, state.Progress))
@@ -94,7 +99,9 @@ namespace Hooked.Shared.Services
                 throw new ArgumentException("Quest progress ID is required.", nameof(userQuestProgressId));
             }
 
-            var progress = await _db.UserFishingQuestProgresses
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+            var progress = await db.UserFishingQuestProgresses
                 .Include(userProgress => userProgress.Quest)
                 .FirstOrDefaultAsync(
                     userProgress => userProgress.Id == userQuestProgressId && userProgress.UserId == userId,
@@ -153,7 +160,7 @@ namespace Hooked.Shared.Services
             }
 
             progress.LastUpdatedAtUtc = DateTime.UtcNow;
-            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             return new FishingQuestClaimResultDto(
                 progress.Id,
@@ -167,12 +174,13 @@ namespace Hooked.Shared.Services
         }
 
         private async Task<List<QuestProgressState>> GetOrCreateProgressRowsAsync(
+            HookedDbContext db,
             Guid userId,
             DateTime evaluationUtc,
             CancellationToken cancellationToken,
             bool allowRetry = true)
         {
-            var quests = await _db.FishingQuests
+            var quests = await db.FishingQuests
                 .Where(quest => quest.IsActive && quest.TargetCount > 0)
                 .OrderBy(quest => quest.Cadence)
                 .ThenBy(quest => quest.Name)
@@ -188,7 +196,7 @@ namespace Hooked.Shared.Services
             var questIds = quests.Select(quest => quest.Id).ToList();
             var periodStarts = windowsByQuestId.Values.Select(window => window.PeriodStartUtc).Distinct().ToList();
 
-            var progressRows = await _db.UserFishingQuestProgresses
+            var progressRows = await db.UserFishingQuestProgresses
                 .Where(progress => progress.UserId == userId && questIds.Contains(progress.QuestId) && periodStarts.Contains(progress.PeriodStartUtc))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -216,7 +224,7 @@ namespace Hooked.Shared.Services
                     LastUpdatedAtUtc = now
                 };
 
-                _db.UserFishingQuestProgresses.Add(newProgress);
+                db.UserFishingQuestProgresses.Add(newProgress);
                 progressByQuestId[quest.Id] = newProgress;
                 hasAddedRows = true;
             }
@@ -225,12 +233,12 @@ namespace Hooked.Shared.Services
             {
                 try
                 {
-                    await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                 }
                 catch (DbUpdateException) when (allowRetry)
                 {
-                    _db.ChangeTracker.Clear();
-                    return await GetOrCreateProgressRowsAsync(userId, evaluationUtc, cancellationToken, allowRetry: false).ConfigureAwait(false);
+                    db.ChangeTracker.Clear();
+                    return await GetOrCreateProgressRowsAsync(db, userId, evaluationUtc, cancellationToken, allowRetry: false).ConfigureAwait(false);
                 }
             }
 
@@ -260,9 +268,9 @@ namespace Hooked.Shared.Services
             }
         }
 
-        private async Task EnsureUserExistsAsync(Guid userId, CancellationToken cancellationToken)
+        private async Task EnsureUserExistsAsync(HookedDbContext db, Guid userId, CancellationToken cancellationToken)
         {
-            var userExists = await _db.Users
+            var userExists = await db.Users
                 .AsNoTracking()
                 .AnyAsync(user => user.Id == userId, cancellationToken)
                 .ConfigureAwait(false);
