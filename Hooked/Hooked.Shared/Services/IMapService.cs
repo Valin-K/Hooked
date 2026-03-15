@@ -11,6 +11,20 @@ namespace Hooked.Shared.Services
 
         Task<IReadOnlyList<MapCatchPinDto>> GetCatchPinsAsync(
             CancellationToken cancellationToken = default);
+
+        /// <summary>Returns the 10 most recent catches (with location) from users the viewer follows.</summary>
+        Task<IReadOnlyList<MapCatchPinDto>> GetFriendCatchPinsAsync(
+            Guid viewerUserId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Returns all catches (with location) for a specific species — friends and public.</summary>
+        Task<IReadOnlyList<MapCatchPinDto>> GetCatchPinsBySpeciesAsync(
+            string speciesName,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Returns distinct species names that have at least one catch with location data.</summary>
+        Task<IReadOnlyList<string>> GetSpeciesWithCatchesAsync(
+            CancellationToken cancellationToken = default);
     }
 
     public sealed record MapCatchPinDto(
@@ -23,5 +37,6 @@ namespace Hooked.Shared.Services
         double? LengthMeters,
         double? WeightKg,
         bool HasPhoto,
-        DateTime CaughtAt);
+        DateTime CaughtAt,
+        bool IsFriend = false);
 }
