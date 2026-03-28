@@ -15,6 +15,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 builder.Services.AddSingleton<IPhotoCaptureService, PhotoCaptureService>();
 builder.Services.AddScoped<ILocationService, WebLocationService>();
+builder.Services.AddSingleton<IPreferencesService, WebPreferencesService>();
 
 // Setup database - create SQLite path only if not using Supabase
 var useSupabase = builder.Configuration.GetValue<bool>("DatabaseConfiguration:UseSupabase");

@@ -229,3 +229,194 @@
         min-height: 2rem;
     }
 }
+
+.scanner-auto-measure-toggle {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: rgba(105, 216, 255, 0.08);
+    border: 1px solid rgba(105, 216, 255, 0.2);
+}
+
+.scanner-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-strong);
+}
+
+.scanner-checkbox-label input[type="checkbox"] {
+    width: 1.2rem;
+    height: 1.2rem;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+.scanner-info-text {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-soft);
+    line-height: 1.4;
+}
+
+.scanner-ar-result {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    background: linear-gradient(140deg, rgba(34, 211, 238, 0.15), rgba(105, 216, 255, 0.1));
+    border: 1px solid rgba(105, 216, 255, 0.3);
+}
+
+.scanner-ar-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(105, 216, 255, 0.15);
+    border: 1px solid rgba(105, 216, 255, 0.3);
+}
+
+.scanner-ar-info {
+    margin: 0.5rem 0 0;
+    font-size: 0.72rem;
+    color: var(--text-soft);
+    font-family: 'Courier New', monospace;
+}
+
+.scanner-warning {
+    color: #ffb366 !important;
+    font-weight: 600;
+}
+
+.scanner-calibration-prompt {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: linear-gradient(140deg, rgba(255, 179, 102, 0.1), rgba(255, 143, 143, 0.08));
+    border: 1px solid rgba(255, 179, 102, 0.3);
+}
+
+.scanner-calibration-prompt h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: var(--text-strong);
+}
+
+.scanner-calibration-prompt p {
+    margin: 0.35rem 0 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-soft);
+}
+
+.scanner-calibration-steps {
+    margin: 0.6rem 0;
+    padding-left: 1.2rem;
+    font-size: 0.82rem;
+    color: var(--text-soft);
+    line-height: 1.5;
+}
+
+.scanner-calibration-steps li {
+    margin-bottom: 0.35rem;
+}
+
+.scanner-calibration-warning {
+    margin: 0.6rem 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(255, 179, 102, 0.15);
+    border: 1px solid rgba(255, 179, 102, 0.4);
+    color: #ffb366;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.scanner-calibration-section {
+    margin-top: 1rem;
+    padding: 1.2rem;
+    border-radius: 16px;
+    border: 2px solid rgba(255, 179, 102, 0.3);
+}
+
+.scanner-calibration-section h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text-strong);
+}
+
+.scanner-calibration-desc {
+    margin: 0 0 0.8rem;
+    font-size: 0.88rem;
+    color: var(--text-soft);
+}
+
+.scanner-calibration-steps-box {
+    margin: 0.8rem 0;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scanner-calibration-steps-box strong {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--text-strong);
+}
+
+.scanner-calibration-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 1rem 0;
+    padding: 2rem 1rem;
+    border: 2px dashed rgba(105, 216, 255, 0.4);
+    border-radius: 12px;
+    background: rgba(105, 216, 255, 0.05);
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.scanner-calibration-upload:hover {
+    border-color: rgba(105, 216, 255, 0.6);
+    background: rgba(105, 216, 255, 0.1);
+}
+
+.scanner-calibration-upload span {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-strong);
+}
+
+.scanner-calibration-preview-wrap {
+    position: relative;
+    margin: 1rem 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+
+.scanner-calibration-preview-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 280px;
+    object-fit: contain;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.scanner-calibrate-btn {
+    width: 100%;
+    margin-top: 0.8rem;
+}

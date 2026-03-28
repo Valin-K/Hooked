@@ -47,6 +47,9 @@ namespace Hooked.Shared.Services
                     configuration["ReferenceImageId"],
                     sp.GetRequiredService<IGeminiFishSpeciesService>()));
 
+            services.AddSingleton<ICameraCalibrationService, CameraCalibrationService>();
+            services.AddSingleton<IReferenceMeasurementService, ReferenceMeasurementService>();
+
             var supabaseUrl = configuration["Supabase:Url"];
             var supabaseAnonKey = configuration["Supabase:AnonKey"];
             if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseAnonKey))
